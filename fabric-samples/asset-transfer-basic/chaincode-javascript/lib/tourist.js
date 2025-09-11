@@ -167,6 +167,8 @@ class TouristContract extends Contract {
      * @param expiryAt - ISO datetime string for expiry (string)
      * @param metadataJSON - optional stringified metadata
      */
+
+
     async RegisterTourist(ctx, touristId, kycHash, itineraryJSON, emergencyContactsJSON, expiryAt, metadataJSON = '{}') {
         // Access control: only issuer
         this._requireRole(ctx, ['issuer', 'Org1MSP']);
@@ -484,6 +486,7 @@ class TouristContract extends Contract {
      * Query tourists with CouchDB rich query (pass JSON query)
      * Example: {"selector":{"status":"active"}}
      */
+    
     async QueryTourists(ctx, queryJSON) {
         // Restrict access to authorized roles
         this._requireRole(ctx, ['police', 'issuer', 'admin', 'Org1MSP']);
