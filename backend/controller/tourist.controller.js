@@ -1,0 +1,157 @@
+'use strict';
+
+const { submitTransaction, evaluateTransaction } = require('../services/fabricService');
+const mlService = require('../services/mlService');
+const Location = require('../models/location.model');
+const Anomaly = require('../models/anomoly.model.js');
+
+/**
+ * Register a new tourist on-chain
+ * Body:
+ * {
+ *   org, identity, touristId, kycHash,
+ *   itinerary, emergencyContacts, expiryAt, friends
+ * }
+ */
+exports.registerTourist = async (req, res, next) => {
+  try {
+    const {
+      org = 'Org1',
+      identity = 'appUser',
+      touristId,
+      kycHash,
+      itinerary = {},
+      emergencyContacts = [],
+      expiryAt
+    } = req.body;
+
+    if (!touristId || !kycHash || !expiryAt) {
+      return res.status(400).json({ success: false, message: 'touristId, kycHash, expiryAt are required' });
+    }
+
+    // Call chaincode with exactly 6 parameters after ctx
+    const result = await submitTransaction(
+      org,
+      identity,
+      'RegisterTourist',
+      touristId,
+      kycHash,
+      JSON.stringify(itinerary),
+      JSON.stringify(emergencyContacts),
+      expiryAt
+    );
+
+    res.json({
+      success: true,
+      data: JSON.parse(result.toString())
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Upload a batch of location updates
+ * Body:
+ * {
+ *   org, identity, touristId, deviceId,
+ *   locations: [{ lat, lon, ts, speed, accuracy }]
+ * }
+ */
+exports.locationUpdate = async (req, res, next) => {
+  try {
+    const {
+      org = 'Org1',
+      identity = 'appUser',
+      touristId,
+      deviceId,
+      locations
+    } = req.body;
+
+    if (!touristId || !Array.isArray(locations) || locations.length === 0) {
+      return res.status(400).json({ success: false, message: 'touristId & non-empty locations array are required' });
+    }
+
+    // Persist locations off-chain
+    const docs = locations.map(l => ({
+      touristId,
+      deviceId,
+      lat: l.lat,
+      lon: l.lon,
+      speed: l.speed || 0,
+      accuracy: l.accuracy || null,
+      ts: new Date(l.ts)
+    }));
+    await Location.insertMany(docs);
+
+    // Build recent sequence for ML (last 60 points max)
+    const recent = await Location.find({ touristId })
+      .sort({ ts: -1 })
+      .limit(60)
+      .lean();
+
+    const seq = recent.reverse().map(d => ({
+      lat: d.lat,
+      lon: d.lon,
+      speed: d.speed,
+      ts: d.ts
+    }));
+
+    // Analyze with ML service
+    const mlResult = await mlService.analyzeSequence(touristId, seq);
+
+    // If anomaly detected → store in DB and append to ledger
+    if (mlResult?.anomaly && mlResult.score >= 0.65) {
+      const anomalyDoc = await Anomaly.create({
+        touristId,
+        type: mlResult.type || 'unknown',
+        score: mlResult.score,
+        explanation: mlResult.explanation || '',
+        locations: seq
+      });
+
+      // Summary for on-chain storage
+      const anomalySummary = {
+        id: anomalyDoc._id.toString(),
+        type: anomalyDoc.type,
+        score: anomalyDoc.score,
+        summary: (anomalyDoc.explanation || '').slice(0, 200),
+        offChainRef: anomalyDoc._id.toString()
+      };
+
+      await submitTransaction(org, identity, 'AppendAnomaly', touristId, JSON.stringify(anomalySummary));
+    }
+
+    res.json({
+      success: true,
+      data: { ml: mlResult }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Verify a tourist’s validity
+ * Params: touristId
+ * Body: { org, identity }
+ */
+exports.verifyTourist = async (req, res, next) => {
+  try {
+    const { org = 'Org1', identity = 'appUser' } = req.body;
+    const { touristId } = req.params;
+
+    if (!touristId) {
+      return res.status(400).json({ success: false, message: 'touristId is required' });
+    }
+
+    const result = await evaluateTransaction(org, identity, 'VerifyTourist', touristId);
+
+    res.json({
+      success: true,
+      data: JSON.parse(result.toString())
+    });
+  } catch (err) {
+    next(err);
+  }
+};
