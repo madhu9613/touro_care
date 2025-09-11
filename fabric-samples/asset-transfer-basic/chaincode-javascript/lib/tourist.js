@@ -2,14 +2,13 @@
 
 const { Contract } = require('fabric-contract-api');
 const crypto = require('crypto');
-const Ajv = require('ajv');
 const { TextEncoder } = require('util');
+const Ajv = require("ajv");
+const addFormats = require("ajv-formats");
 
-const ajv = new Ajv({ 
-    allErrors: true, 
-    coerceTypes: true,
-    useDefaults: true 
-});
+const ajv = new Ajv({ allErrors: true, coerceTypes: true, useDefaults: true });
+addFormats(ajv);  // enable "date-time", "email", etc.
+
 
 // JSON schema for tourist record (ledger representation)
 const TOURIST_SCHEMA = {
@@ -43,14 +42,15 @@ const TOURIST_SCHEMA = {
                 properties: {
                     name: { type: 'string' },
                     relationship: { type: 'string' },
-                    phone: { type: 'string', pattern: '^\\+?[\\d\\s-()]{10,}$' },
+                    // Fixed regex: escaped parentheses for Node 16
+                    phone: { type: 'string', pattern: '^\\+?[\\d\\s\\-\\(\\)]{10,}$' },
                     email: { type: 'string', format: 'email' }
                 },
                 required: ['name', 'phone']
             }
         },
-        issuer: { type: 'string' },              // MSP or issuer id
-        issuerId: { type: 'string' },            // Specific issuer identity
+        issuer: { type: 'string' },              
+        issuerId: { type: 'string' },            
         createdAt: { type: 'string', format: 'date-time' },
         updatedAt: { type: 'string', format: 'date-time' },
         expiryAt: { type: 'string', format: 'date-time' },
