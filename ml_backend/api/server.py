@@ -34,25 +34,54 @@ def health():
 @app.route('/predict/anomaly', methods=['POST'])
 def predict_anomaly():
     data = request.json
-    latitudes = data.get("latitudes")   # list of floats
-    longitudes = data.get("longitudes") # list of floats
-    timestamps = data.get("timestamps") # list of floats
+    latitudes = data.get("latitudes", [])   # list of floats
+    longitudes = data.get("longitudes", []) # list of floats
+    timestamps = data.get("timestamps", []) # list of floats
+
+    # Validate input
+    if not (latitudes and longitudes and timestamps):
+        return jsonify({'success': False, 'message': 'latitudes, longitudes, timestamps required'}), 400
 
     # Compute sequence features
     sequence = compute_features(latitudes, longitudes, timestamps)
 
+    if not sequence:
+        return jsonify({'success': False, 'message': 'No valid sequence generated'}), 400
+
     # Optional: scale features
-    raw_features = np.array([[f['dt'], f['dist'], f['speed'], f['bearing'], f['d_bearing'], f['accel']] for f in sequence], dtype=np.float32)
-    print(raw_features)
-    scaled = scaler.transform(raw_features)  # using previously trained scaler
+    raw_features = np.array(
+        [[f['dt'], f['dist'], f['speed'], f['bearing'], f['d_bearing'], f['accel']] for f in sequence],
+        dtype=np.float32
+    )
+
+    # Pad sequence to SEQ_LEN if too short
+    if raw_features.shape[0] < SEQ_LEN:
+        pad_len = SEQ_LEN - raw_features.shape[0]
+        padding = np.zeros((pad_len, N_FEATURES), dtype=np.float32)
+        raw_features = np.vstack([padding, raw_features])  # prepend zeros
+
+    # Trim sequence if longer than SEQ_LEN
+    elif raw_features.shape[0] > SEQ_LEN:
+        raw_features = raw_features[-SEQ_LEN:, :]
+
+    # Scale features if scaler exists
+    if scaler:
+        scaled = scaler.transform(raw_features)
+    else:
+        scaled = raw_features
 
     # Feed into transformer
-    tensor_input = torch.tensor(scaled, dtype=torch.float32).unsqueeze(0)  # shape: [1, seq_len, n_features]
+    tensor_input = torch.tensor(scaled, dtype=torch.float32).unsqueeze(0)  # shape: [1, SEQ_LEN, N_FEATURES]
     with torch.no_grad():
         reconstructed = model(tensor_input)
         mse = torch.mean((tensor_input - reconstructed) ** 2).item()
 
-    return jsonify({'sequence_length': len(sequence), 'anomaly_score': mse})
+    return jsonify({
+        'success': True,
+        'sequence_length': len(sequence),
+        'anomaly_score': mse
+    })
+
 
 
 

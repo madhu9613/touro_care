@@ -136,10 +136,11 @@ exports.locationUpdate = async (req, res, next) => {
  * Params: touristId
  * Body: { org, identity }
  */
+
 exports.verifyTourist = async (req, res, next) => {
   try {
-    const { org = 'Org1', identity = 'appUser' } = req.body;
     const { touristId } = req.params;
+    const { org = 'Org1', identity = 't1' } = req.query; // safer for GET
 
     if (!touristId) {
       return res.status(400).json({ success: false, message: 'touristId is required' });
@@ -147,10 +148,14 @@ exports.verifyTourist = async (req, res, next) => {
 
     const result = await evaluateTransaction(org, identity, 'VerifyTourist', touristId);
 
-    res.json({
-      success: true,
-      data: JSON.parse(result.toString())
-    });
+    let parsed;
+    try {
+      parsed = JSON.parse(result.toString());
+    } catch {
+      parsed = result.toString();
+    }
+
+    res.json({ success: true, data: parsed });
   } catch (err) {
     next(err);
   }

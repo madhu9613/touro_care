@@ -23,7 +23,7 @@ async function _connectGateway(org, identity) {
   await gateway.connect(ccp, {
     wallet,
     identity,
-    discovery: { enabled: false, asLocalhost: true }
+    discovery: { enabled: true, asLocalhost: true }
   });
   return gateway;
 }
