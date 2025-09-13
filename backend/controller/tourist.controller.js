@@ -87,7 +87,7 @@ exports.locationUpdate = async (req, res, next) => {
     // Build recent sequence for ML (last 60 points max)
     const recent = await Location.find({ touristId })
       .sort({ ts: -1 })
-      .limit(60)
+      .limit(20)
       .lean();
 
     const seq = recent.reverse().map(d => ({

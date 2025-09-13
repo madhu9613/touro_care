@@ -5,9 +5,9 @@ from shapely.geometry import Point, Polygon
 def load_geofences(path='data/geofences.json'):
     with open(path, 'r') as f:
         geofences = json.load(f)
-    # Convert polygons to Shapely objects
+    # Convert polygons to Shapely objects only if type == polygon
     for g in geofences:
-        if g['type'] == 'polygon':
+        if g.get('type') == 'polygon' and 'vertices' in g:
             g['polygon'] = Polygon(g['vertices'])
     return geofences
 

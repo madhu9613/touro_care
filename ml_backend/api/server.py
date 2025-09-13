@@ -4,6 +4,7 @@ import torch, joblib, numpy as np, os, time
 from models.transformer_model import TransformerAutoencoder
 from utils.geo_utils import load_geofences, check_geofence
 from utils.feature_utils import compute_features
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -25,7 +26,7 @@ if os.path.exists('models/artifacts/scaler_v2.pkl'):
     scaler = joblib.load('models/artifacts/scaler_v2.pkl')
 
 # Load geofences
-# geofences = load_geofences()
+geofences = load_geofences()
 
 @app.route('/health')
 def health():
@@ -34,13 +35,9 @@ def health():
 @app.route('/predict/anomaly', methods=['POST'])
 def predict_anomaly():
     data = request.json
-    latitudes = data.get("latitudes", [])   # list of floats
-    longitudes = data.get("longitudes", []) # list of floats
-    timestamps = data.get("timestamps", []) # list of floats
-
-    # Validate input
-    if not (latitudes and longitudes and timestamps):
-        return jsonify({'success': False, 'message': 'latitudes, longitudes, timestamps required'}), 400
+    latitudes = data.get("latitudes")   # list of floats
+    longitudes = data.get("longitudes") # list of floats
+    timestamps = data.get("timestamps") # list of floats
 
     # Compute sequence features
     sequence = compute_features(latitudes, longitudes, timestamps)
@@ -85,39 +82,39 @@ def predict_anomaly():
 
 
 
-# @app.route('/ingest/ping', methods=['POST'])
-# def ingest_ping():
-#     """
-#     Receives tourist's current location from Node.js frontend or mobile app.
-#     """
-#     data = request.get_json(force=True)
-#     tourist_id = data.get('tourist_id')
-#     lat = float(data.get('lat'))
-#     lon = float(data.get('lon'))
-#     ts = data.get('ts', time.time())
+@app.route('/ingest/ping', methods=['POST'])
+def ingest_ping():
+    """
+    Receives tourist's current location from Node.js frontend or mobile app.
+    """
+    data = request.get_json(force=True)
+    tourist_id = data.get('tourist_id')
+    lat = float(data.get('lat'))
+    lon = float(data.get('lon'))
+    ts = data.get('ts', time.time())
 
-#     g = check_geofence(lat, lon, geofences)
-#     actions = []
+    g = check_geofence(lat, lon, geofences)
+    actions = []
 
-#     if g:
-#         actions.append({
-#             'geofence': g['name'],
-#             'restricted': g.get('restricted', False)
-#         })
-#         # Alert if restricted
-#         if g.get('restricted', False):
-#             alert = {
-#                 'type': 'geofence_restricted',
-#                 'tourist_id': tourist_id,
-#                 'geofence': g,
-#                 'ts': ts
-#             }
-#             socketio.emit('geofence_alert', alert, broadcast=True)
+    if g:
+        actions.append({
+            'geofence': g['name'],
+            'restricted': g.get('restricted', False)
+        })
+        # Alert if restricted
+        if g.get('restricted', False):
+            alert = {
+                'type': 'geofence_restricted',
+                'tourist_id': tourist_id,
+                'geofence': g,
+                'ts': ts
+            }
+            socketio.emit('geofence_alert', alert)
 
-#     # Broadcast location to dashboard or families
-#     socketio.emit('location_update', {'tourist_id': tourist_id, 'lat': lat, 'lon': lon, 'ts': ts})
+    # Broadcast location to dashboard or families
+    socketio.emit('location_update', {'tourist_id': tourist_id, 'lat': lat, 'lon': lon, 'ts': ts})
     
-#     return jsonify({'status': 'ok', 'actions': actions})
+    return jsonify({'status': 'ok', 'actions': actions})
 
 
 

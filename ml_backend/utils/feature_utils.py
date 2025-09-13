@@ -24,7 +24,7 @@ def bearing(lat1, lon1, lat2, lon2):
 def compute_features(latitudes, longitudes, timestamps):
     sequence = []
     for i in range(1, len(latitudes)):
-        dt = timestamps[i] - timestamps[i-1]
+        dt = (timestamps[i] - timestamps[i-1]).total_seconds()
         dist = haversine(latitudes[i-1], longitudes[i-1], latitudes[i], longitudes[i])
         speed = dist / dt if dt != 0 else 0
         brng = bearing(latitudes[i-1], longitudes[i-1], latitudes[i], longitudes[i])
@@ -41,4 +41,11 @@ def compute_features(latitudes, longitudes, timestamps):
             'd_bearing': d_brng,
             'accel': accel
         })
+
+    target_len = 20
+    if len(sequence) < target_len:
+        last = sequence[-1] if sequence else [0.0] * 6
+        while len(sequence) < target_len:
+            sequence.append(last)   # repeat last row (or use zeros if you prefer)
+    
     return sequence
