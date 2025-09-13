@@ -25,7 +25,7 @@ if os.path.exists('models/artifacts/scaler_v2.pkl'):
     scaler = joblib.load('models/artifacts/scaler_v2.pkl')
 
 # Load geofences
-# geofences = load_geofences()
+geofences = load_geofences()
 
 @app.route('/health')
 def health():
@@ -56,39 +56,39 @@ def predict_anomaly():
 
 
 
-# @app.route('/ingest/ping', methods=['POST'])
-# def ingest_ping():
-#     """
-#     Receives tourist's current location from Node.js frontend or mobile app.
-#     """
-#     data = request.get_json(force=True)
-#     tourist_id = data.get('tourist_id')
-#     lat = float(data.get('lat'))
-#     lon = float(data.get('lon'))
-#     ts = data.get('ts', time.time())
+@app.route('/ingest/ping', methods=['POST'])
+def ingest_ping():
+    """
+    Receives tourist's current location from Node.js frontend or mobile app.
+    """
+    data = request.get_json(force=True)
+    tourist_id = data.get('tourist_id')
+    lat = float(data.get('lat'))
+    lon = float(data.get('lon'))
+    ts = data.get('ts', time.time())
 
-#     g = check_geofence(lat, lon, geofences)
-#     actions = []
+    g = check_geofence(lat, lon, geofences)
+    actions = []
 
-#     if g:
-#         actions.append({
-#             'geofence': g['name'],
-#             'restricted': g.get('restricted', False)
-#         })
-#         # Alert if restricted
-#         if g.get('restricted', False):
-#             alert = {
-#                 'type': 'geofence_restricted',
-#                 'tourist_id': tourist_id,
-#                 'geofence': g,
-#                 'ts': ts
-#             }
-#             socketio.emit('geofence_alert', alert, broadcast=True)
+    if g:
+        actions.append({
+            'geofence': g['name'],
+            'restricted': g.get('restricted', False)
+        })
+        # Alert if restricted
+        if g.get('restricted', False):
+            alert = {
+                'type': 'geofence_restricted',
+                'tourist_id': tourist_id,
+                'geofence': g,
+                'ts': ts
+            }
+            socketio.emit('geofence_alert', alert)
 
-#     # Broadcast location to dashboard or families
-#     socketio.emit('location_update', {'tourist_id': tourist_id, 'lat': lat, 'lon': lon, 'ts': ts})
+    # Broadcast location to dashboard or families
+    socketio.emit('location_update', {'tourist_id': tourist_id, 'lat': lat, 'lon': lon, 'ts': ts})
     
-#     return jsonify({'status': 'ok', 'actions': actions})
+    return jsonify({'status': 'ok', 'actions': actions})
 
 
 

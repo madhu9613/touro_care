@@ -35,5 +35,7 @@
     "supertest": "^6.3.3"
   },
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [],
+  "type": "commonjs"
 }
