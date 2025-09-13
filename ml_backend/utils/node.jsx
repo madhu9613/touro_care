@@ -12,7 +12,7 @@ const sendLocation = async (touristId, lat, lon) => {
   } catch (err) {
     console.error(err);
   }
-};4
+};
 
 
 const io = require('socket.io-client');

@@ -4,6 +4,7 @@ import torch, joblib, numpy as np, os, time
 from models.transformer_model import TransformerAutoencoder
 from utils.geo_utils import load_geofences, check_geofence
 from utils.feature_utils import compute_features
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -33,10 +34,18 @@ def health():
 
 @app.route('/predict/anomaly', methods=['POST'])
 def predict_anomaly():
-    data = request.json
-    latitudes = data.get("latitudes")   # list of floats
-    longitudes = data.get("longitudes") # list of floats
-    timestamps = data.get("timestamps") # list of floats
+
+    data = request.get_json()
+    seq = data.get("sequence")   # [{lat, lon, ts, speed, accuracy}, ...]
+
+    if not seq or len(seq) == 0:
+        return jsonify({"error": "sequence is required"}), 400
+
+    latitudes = [p["lat"] for p in seq]
+    longitudes = [p["lon"] for p in seq]
+    timestamps = [
+        datetime.fromisoformat(p["ts"].replace("Z", "+00:00")) for p in seq
+    ]
 
     # Compute sequence features
     sequence = compute_features(latitudes, longitudes, timestamps)

@@ -2,7 +2,7 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000/predict';
+const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:8080/predict/anomaly';
 const TIMEOUT = parseInt(process.env.ML_TIMEOUT_MS || '10000', 10);
 
 async function analyzeSequence(touristId, locations) {
@@ -17,3 +17,4 @@ async function analyzeSequence(touristId, locations) {
 }
 
 module.exports = { analyzeSequence };
+
