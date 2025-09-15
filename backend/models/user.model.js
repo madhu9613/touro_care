@@ -2,10 +2,13 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
+  name: { type: String },
   email: { type: String, unique: true, required: true, index: true },
-  passwordHash: { type: String }, // optional if using OAuth
-  roles: { type: [String], default: ['tourist'] }, // e.g., 'tourist', 'issuer', 'police', 'admin'
-  walletId: { type: String }, // identity name in Fabric wallet
+  passwordHash: { type: String }, 
+  roles: { type: [String], default: ['tourist'] }, // tourist, issuer, police, admin, tourism
+  walletId: { type: String },
+  org: { type: String, enum: ['Org1','Org2'], default: 'Org1' }, // tie to Fabric org
+  phone: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

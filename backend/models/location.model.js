@@ -1,17 +1,14 @@
-const mongoose = require("mongoose");
+'use strict';
+const mongoose = require('mongoose');
 
 const locationSchema = new mongoose.Schema({
-  touristId: { type: String, required: true },
-
-  deviceId: { type: String },
-  lat: { type: Number, required: true },
-  lon: { type: Number, required: true },
-  speed: { type: Number, default: 0 },
-  accuracy: { type: Number },
-  ts: { type: Date, required: true }
-
+  touristId: { type: String, index: true },
+  deviceId: String,
+  lat: Number,
+  lon: Number,
+  speed: Number,
+  accuracy: Number,
+  ts: { type: Date, index: true }
 });
 
-
-
-module.exports = mongoose.models.Location || mongoose.model("Location", locationSchema);
+module.exports = mongoose.model('Location', locationSchema);

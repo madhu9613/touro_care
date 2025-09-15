@@ -2,11 +2,11 @@
 const mongoose = require('mongoose');
 
 const anomalySchema = new mongoose.Schema({
-  touristId: { type: String, required: true, index: true },
-  type: { type: String, required: true },
-  score: { type: Number, required: true },
-  explanation: { type: String },
-  locations: [{ lat: Number, lon: Number, ts: Date }],
+  touristId: { type: String, index: true },
+  type: String,
+  score: Number,
+  explanation: String,
+  locations: [Object],
   createdAt: { type: Date, default: Date.now }
 });
 
