@@ -1,4 +1,6 @@
 'use strict';
+require('dotenv').config();
+const FabricCAServices = require('fabric-ca-client');
 const { Gateway, Wallets } = require('fabric-network');
 const fs = require('fs');
 const yaml = require('js-yaml');
@@ -42,7 +44,7 @@ async function submitTransaction(org, identity, fcn, ...args) {
     logger.info(`Submitted tx ${fcn} by ${identity} on ${org}`);
     return result;
   } finally {
-    
+
     gateway.disconnect();
   }
 }
@@ -59,5 +61,65 @@ async function evaluateTransaction(org, identity, fcn, ...args) {
     gateway.disconnect();
   }
 }
+/**
+ * generateWalletId: registers a new identity with Fabric CA
+ * @param {string} org - 'Org1' or 'Org2'
+ * @param {array} roles - e.g., ['tourist'], ['admin'], ['police']
+ */
+/**
+ * generateWalletId: auto register and enroll a new identity for tourists or optionally for admin/police
+ */
+async function generateWalletId(org, roles) {
+  try {
+    const role = roles[0];
+    const prefix = role === 'tourist' ? 't' : role === 'admin' ? 'admin' : role === 'police' ? 'police' : 'user';
 
-module.exports = { submitTransaction, evaluateTransaction };
+    const ccp = await _loadCCP(org);
+    const caInfo = Object.values(ccp.certificateAuthorities)[0];
+    const ca = new FabricCAServices(caInfo.url, { trustedRoots: caInfo.tlsCACerts.pem, verify: false }, caInfo.caName);
+
+    const wallet = await _getWallet(org);
+
+    // Find next available walletId
+
+  
+    const walletId = `${prefix}_${Date.now()}`;
+
+
+    // Admin identity must exist
+    const adminIdentity = await wallet.get('admin');
+    if (!adminIdentity) throw new Error(`Admin identity not found in ${org} wallet. Enroll admin first.`);
+
+    // Get admin user context
+    const provider = wallet.getProviderRegistry().getProvider(adminIdentity.type);
+    const adminUser = await provider.getUserContext(adminIdentity, 'admin');
+
+    // Register & enroll user
+    const secret = await ca.register({
+      affiliation: `${org.toLowerCase()}.department1`,
+      enrollmentID: walletId,
+      role: 'client',
+      attrs: [
+        { name: 'role', value: role, ecert: true },
+        { name: 'org', value: org, ecert: true }
+      ]
+    }, adminUser);
+
+    const enrollment = await ca.enroll({ enrollmentID: walletId, enrollmentSecret: secret });
+    const identity = {
+      credentials: { certificate: enrollment.certificate, privateKey: enrollment.key.toBytes() },
+      mspId: org === 'Org1' ? 'Org1MSP' : 'Org2MSP',
+      type: 'X.509'
+    };
+   await wallet.put(`${walletId}`, identity); // wallet file
+
+    logger.info(`Wallet ID generated: ${walletId}`);
+    return walletId;
+
+  } catch (err) {
+    logger.error('Error generating wallet ID:', err);
+    throw err;
+  }
+}
+
+module.exports = { submitTransaction, evaluateTransaction,generateWalletId };
