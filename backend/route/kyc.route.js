@@ -15,6 +15,8 @@ router.post(
   kycController.submitKyc
 );
 
+
+
 // Verify OTP for submitted KYC
 router.post('/verify-otp', auth, requireRole(['tourist']), kycController.verifyOtpKyc);
 
