@@ -112,6 +112,8 @@ dist
 
 # Serverless directories
 .serverless/
+# Fabric wallets
+wallet/
 
 # FuseBox cache
 .fusebox/
