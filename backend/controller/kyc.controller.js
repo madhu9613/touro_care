@@ -161,13 +161,13 @@ exports.listPending = async (req, res, next) => {
 exports.review = async (req, res, next) => {
   try {
     const { requestId } = req.params;
-    const { status, comment } = req.body;
+    const { status,comment } = req.body;
     if (!['approved','rejected'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
 
     const kycDoc = await KycRequest.findOne({ requestId });
     if (!kycDoc) return res.status(404).json({ message: 'KYC request not found' });
 
-    kycDoc.status = status;
+   kycDoc.status = status;
     kycDoc.reviewComment = comment || '';
     kycDoc.reviewerId = req.user._id;
     kycDoc.updatedAt = new Date();
