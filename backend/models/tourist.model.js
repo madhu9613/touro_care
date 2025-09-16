@@ -1,5 +1,5 @@
-"use strict";
-const mongoose = require("mongoose");
+'use strict';
+const mongoose = require('mongoose');
 
 const destSchema = new mongoose.Schema({
   location: String,
@@ -16,21 +16,19 @@ const touristSchema = new mongoose.Schema({
     destinations: [destSchema],
     transportation: [String]
   },
-  emergencyContacts: [
-    {
-      name: String,
-      relationship: String,
-      phone: String,
-      email: String
-    }
-  ],
+  emergencyContacts: [{
+    name: String,
+    relationship: String,
+    phone: String,
+    email: String
+  }],
   issuer: String,
   issuerId: String,
   expiryAt: Date,
-  status: { type: String, enum: ["active", "revoked", "expired", "suspended"], default: "active" },
+  status: { type: String, enum: ["active","revoked","expired","suspended","pending"], default: "pending" },
   metadata: Object,
   createdAt: { type: Date, default: Date.now },
   updatedAt: Date
 });
 
-module.exports = mongoose.model("Tourist", touristSchema);
+module.exports = mongoose.model('Tourist', touristSchema);

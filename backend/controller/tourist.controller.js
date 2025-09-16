@@ -2,7 +2,7 @@
 
 const { submitTransaction, evaluateTransaction } = require('../services/fabricService');
 const mlService = require('../services/mlService');
-const Location = require('../models/location.model');
+const Location = require('../models/location.model.js');
 const Anomaly = require('../models/anomoly.model.js');
 
 /**
@@ -13,13 +13,14 @@ const Anomaly = require('../models/anomoly.model.js');
  *   itinerary, emergencyContacts, expiryAt, friends
  * }
  */
+
 exports.registerTourist = async (req, res, next) => {
   try {
     const {
       org = 'Org1',
-      identity = 'appUser',
-      touristId,
-      kycHash,
+      identity = 'admin',
+      touristId="t_1757964252657",
+      kycHash="40e928dffa9836897433e9dbb8f6298c9ac051a5c06499d28c2b5937f777e4df",
       itinerary = {},
       emergencyContacts = [],
       expiryAt
@@ -62,7 +63,7 @@ exports.locationUpdate = async (req, res, next) => {
   try {
     const {
       org = 'Org1',
-      identity = 'appUser',
+      identity = 't1',
       touristId,
       deviceId,
       locations
@@ -99,6 +100,10 @@ exports.locationUpdate = async (req, res, next) => {
 
     // Analyze with ML service
     const mlResult = await mlService.analyzeSequence(touristId, seq);
+
+    const currentLocation = { touristId, ...seq[seq.length - 1]};
+    const Geofences = await mlService.checkGeofence(currentLocation)
+    console.log(Geofences)
 
     // If anomaly detected → store in DB and append to ledger
     if (mlResult?.anomaly && mlResult.score >= 0.65) {

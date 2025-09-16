@@ -3,10 +3,10 @@
     "name": "Restricted Forest Area",
     "type": "circle",
     "center": [
-      32.601,
+      28.601,
       79.201
     ],
-    "radius": 100,
+    "radius": 500,
     "restricted": true
   },
   {
@@ -38,6 +38,16 @@
     "center": [
       38.601,
       72.201
+    ],
+    "radius": 100,
+    "restricted": true
+  },
+  {
+    "name": "Restricted Forest Area",
+    "type": "circle",
+    "center": [
+      38.801,
+      72.901
     ],
     "radius": 100,
     "restricted": true

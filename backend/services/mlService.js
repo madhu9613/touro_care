@@ -23,12 +23,15 @@ async function analyzeSequence(touristId, seq) {
       return {
         success: true,
         anomaly_score: response.anomaly_score,
+        isAnomaly: response.isAnomaly,
+        score: response.anomaly_score,
         sequence_length: response.sequence_length
       };
     } 
   } catch (err) {
     // logger.error("ML service error:", err.message);
-    res.status(500)
+    // res.status(500)
+    // console.log(err)
   }
 }
 

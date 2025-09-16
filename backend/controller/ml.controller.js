@@ -58,6 +58,7 @@ exports.geofence = async (req, res, next) => {
 
 };
 
+
 exports.addGeofence = async(req, res, next) => {
     try {
         const data = req.body
@@ -69,4 +70,13 @@ exports.addGeofence = async(req, res, next) => {
 
 }
 
+
+// addGeofence -> 
+//   {
+//     "name": "Restricted Forest Area",
+//     "type": "circle",
+//     "center": [38.801, 72.901],
+//     "radius": 100,
+//     "restricted": true
+//   }
 

@@ -35,10 +35,14 @@ def health():
 
 @app.route('/predict/anomaly', methods=['POST'])
 def predict_anomaly():
-    data = request.json
-    latitudes = data.get("latitudes")   # list of floats
-    longitudes = data.get("longitudes") # list of floats
-    timestamps = data.get("timestamps") # list of floats or iso8601 strings
+    data = request.get_json()
+
+    latitudes = data.get('latitudes')
+    longitudes = data.get('longitudes')
+    # timestamps = [
+    #     datetime.fromisoformat(p["ts"].replace("Z", "+00:00")) for p in seq
+    # ]
+    timestamps = data.get('timestamps')
 
     # Compute sequence features
     sequence = compute_features(latitudes, longitudes, timestamps)
@@ -73,11 +77,16 @@ def predict_anomaly():
     with torch.no_grad():
         reconstructed = model(tensor_input)
         mse = torch.mean((tensor_input - reconstructed) ** 2).item()
+    
+    print(mse)
 
     return jsonify({
         'success': True,
         'sequence_length': len(sequence),
-        'anomaly_score': mse
+        'anomaly_score': mse,
+        'type': 'emergency',
+        'isAnomaly': True if mse>70 else False,
+        'score': 1 if mse>70 else 0
     })
 
 
@@ -109,15 +118,15 @@ def ingest_ping():
                 'geofence': g,
                 'ts': ts
             }
-            socketio.emit('geofence_alert', alert)
+            # socketio.emit('geofence_alert', alert)
 
-    # Broadcast location to dashboard or families
-    socketio.emit('location_update', {
-        'tourist_id': tourist_id,
-        'lat': lat,
-        'lon': lon,
-        'ts': ts
-    })
+    # # Broadcast location to dashboard or families
+    # socketio.emit('location_update', {
+    #     'tourist_id': tourist_id,
+    #     'lat': lat,
+    #     'lon': lon,
+    #     'ts': ts
+    # })
 
     return jsonify({'status': 'ok', 'actions': actions})
 
@@ -158,3 +167,4 @@ def subscribe(data):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
+

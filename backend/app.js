@@ -9,11 +9,12 @@ const logger = require('./utils/logger');
 
 require('dotenv').config();
 
-const authRoutes = require('./route/auth.js');
-const touristRoutes = require('./route/tourist.js');
-const policeRoutes = require('./route/police.js');
+const authRoutes = require('./route/auth.route.js');
+const touristRoutes = require('./route/tourist.route.js');
+const policeRoutes = require('./route/police.route.js');
+const adminRoutes=require('./route/admin.route.js')
+const kycRoutes = require('./route/kyc.route.js')
 const errorHandler = require('./middleware/errorHandle.middleware.js');
-
 const app = express();
 
 // DB connect
@@ -43,7 +44,8 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/tourist', touristRoutes);
 app.use('/api/police', policeRoutes);
-
+app.use('/api/kyc', kycRoutes);
+app.use('/api/admin',adminRoutes);
 // Error handler
 app.use(errorHandler);
 
