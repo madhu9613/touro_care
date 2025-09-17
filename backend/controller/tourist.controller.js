@@ -2,7 +2,7 @@
 
 const { submitTransaction, evaluateTransaction } = require('../services/fabricService');
 const mlService = require('../services/mlService');
-const Location = require('../models/location.model');
+const Location = require('../models/location.model.js');
 const Anomaly = require('../models/anomoly.model.js');
 
 /**
@@ -100,6 +100,10 @@ exports.locationUpdate = async (req, res, next) => {
 
     // Analyze with ML service
     const mlResult = await mlService.analyzeSequence(touristId, seq);
+
+    const currentLocation = { touristId, ...seq[seq.length - 1]};
+    const Geofences = await mlService.checkGeofence(currentLocation)
+    console.log(Geofences)
 
     // If anomaly detected → store in DB and append to ledger
     if (mlResult?.anomaly && mlResult.score >= 0.65) {

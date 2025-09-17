@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from datetime import datetime
 
 # Haversine distance between two GPS points (meters)
 def haversine(lat1, lon1, lat2, lon2):
@@ -22,8 +23,11 @@ def bearing(lat1, lon1, lat2, lon2):
 
 # Generate 6-feature sequence from lat/lon/timestamp lists
 def compute_features(latitudes, longitudes, timestamps):
+    if isinstance(timestamps[0], str):
+        timestamps = [datetime.fromisoformat(ts.replace("Z", "+00:00")) for ts in timestamps]
+
     sequence = []
-    for i in range(1, len(latitudes)):
+    for i in range(1,len(latitudes)):
         dt = (timestamps[i] - timestamps[i-1]).total_seconds()
         dist = haversine(latitudes[i-1], longitudes[i-1], latitudes[i], longitudes[i])
         speed = dist / dt if dt != 0 else 0
@@ -41,11 +45,19 @@ def compute_features(latitudes, longitudes, timestamps):
             'd_bearing': d_brng,
             'accel': accel
         })
-
-    target_len = 20
-    if len(sequence) < target_len:
-        last = sequence[-1] if sequence else [0.0] * 6
-        while len(sequence) < target_len:
-            sequence.append(last)   # repeat last row (or use zeros if you prefer)
     
     return sequence
+
+    # target_len = 20
+    # if len(sequence) < target_len:
+    #     last = sequence[-1] if sequence else {
+    #         'dt': 0, 'dist': 0, 'speed': 0,
+    #         'bearing': 0, 'd_bearing': 0, 'accel': 0
+    #     }
+    #     while len(sequence) < target_len:
+    #         sequence.append(last.copy())
+
+
+
+
+

@@ -12,6 +12,7 @@
 'use strict';
 const router = require('express').Router();
 const touristController = require('../controller/trip.controller.js');
+const mlController = require('../controller/ml.controller.js')
 
 const { auth, requireRole } = require('../middleware/auth.middleware.js');
 
@@ -19,9 +20,15 @@ const { auth, requireRole } = require('../middleware/auth.middleware.js');
 router.post('/register', auth, requireRole(['tourist']), touristController.registerTourist);
 
 // location update (existing)
-router.post('/location-update', auth, touristController.locationUpdate);
+router.post('/location-update',  touristController.locationUpdate);
 
 // verify on-chain
 router.get('/verify/:touristId', auth, touristController.verifyTourist);
+
+router.post('/predict_anomaly', auth,  mlController.predictAnomaly);
+router.post('/geofence', auth, mlController.geofence);
+
+
+router.post('/add_geofence',auth, mlController.addGeofence)
 
 module.exports = router;

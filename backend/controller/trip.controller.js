@@ -5,6 +5,9 @@ const { customAlphabet } = require('nanoid');
 const { submitTransaction, evaluateTransaction } = require('../services/fabricService');
 const KycRequest = require('../models/kyc.model');
 const DigitalId = require('../models/digitalId.model');
+const Location = require('../models/location.model')
+const mlService = require('../services/mlService.js')
+const Anomaly = require('../models/anomoly.model')
 
 const nano = customAlphabet('0123456789ABCDEF', 8); // 8-char suffix
 const AES_KEY = process.env.AES_256_KEY;
@@ -160,81 +163,92 @@ exports.registerTourist = async (req, res, next) => {
  * Location update (kept the same as your existing implementation)
  */
 exports.locationUpdate = async (req, res, next) => {
-    try {
-        const {
-            org = DEFAULT_ORG,
-            identity = DEFAULT_IDENTITY,
-            touristId,
-            deviceId,
-            locations
-        } = req.body;
+  try {
+    const {
+      org = DEFAULT_ORG,
+      identity = DEFAULT_IDENTITY,
+      touristId,
+      deviceId,
+      locations
+    } = req.body;
 
-        if (!touristId || !Array.isArray(locations) || locations.length === 0) {
-            return res.status(400).json({ success: false, message: 'touristId & non-empty locations array are required' });
-        }
-
-        // Persist locations off-chain
-        const docs = locations.map(l => ({
-            touristId,
-            deviceId,
-            lat: l.lat,
-            lon: l.lon,
-            speed: l.speed || 0,
-            accuracy: l.accuracy || null,
-            ts: new Date(l.ts)
-        }));
-        await Location.insertMany(docs);
-
-        // Build recent sequence for ML (last 60 points max)
-        const recent = await Location.find({ touristId })
-            .sort({ ts: -1 })
-            .limit(20)
-            .lean();
-
-        const seq = recent.reverse().map(d => ({
-            lat: d.lat,
-            lon: d.lon,
-            speed: d.speed,
-            ts: d.ts
-        }));
-
-        // Analyze with ML service
-        const mlResult = await mlService.analyzeSequence(touristId, seq);
-
-        // If anomaly detected → store in DB and append to ledger
-        if (mlResult?.anomaly && mlResult.score >= 0.65) {
-            const anomalyDoc = await Anomaly.create({
-                touristId,
-                type: mlResult.type || 'unknown',
-                score: mlResult.score,
-                explanation: mlResult.explanation || '',
-                locations: seq
-            });
-
-            // Summary for on-chain storage
-            const anomalySummary = {
-                id: anomalyDoc._id.toString(),
-                type: anomalyDoc.type,
-                score: anomalyDoc.score,
-                summary: (anomalyDoc.explanation || '').slice(0, 200),
-                offChainRef: anomalyDoc._id.toString()
-            };
-
-            try {
-                await submitTransaction(org, identity, 'AppendAnomaly', touristId, JSON.stringify(anomalySummary));
-            } catch (err) {
-                console.error('AppendAnomaly failed:', err.message);
-            }
-        }
-
-        res.json({
-            success: true,
-            data: { ml: mlResult }
-        });
-    } catch (err) {
-        next(err);
+    if (!touristId || !Array.isArray(locations) || locations.length !== 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'touristId & exactly 1 location object are required'
+      });
     }
+
+    const loc = locations[0];
+    const ts = loc.ts ? new Date(loc.ts) : new Date();
+
+    // Save current location
+    const data = new Location({
+      touristId,
+      deviceId,
+      lat: loc.lat,
+      lon: loc.lon,
+      speed: loc.speed,
+      ts
+    });
+    await data.save();
+
+    // Get last 21 records (we need 21+ for anomaly detection)
+    const recent = await Location.find({ touristId })
+      .sort({ ts: -1 })
+      .limit(21);
+
+    const seq = recent
+      .reverse()
+      .map(d => ({
+        lat: d.lat,
+        lon: d.lon,
+        speed: d.speed,
+        ts: d.ts
+      }));
+
+    const lastPoint = seq.at(-1);
+    console.log(lastPoint)
+
+    // ✅ Always check geofence
+    const Geofences = await mlService.checkGeofence({
+       touristId, 
+      lat: lastPoint.lat,
+      lon: lastPoint.lon
+    });
+
+    let anomaly = null;
+
+    console.log(seq.length)
+    // ✅ Run anomaly detection only if we have 21 or more
+    if (seq.length >= 21) {
+      const mlResult = await mlService.analyzeSequence(touristId, seq);
+      if (mlResult?.isAnomaly) {
+        anomaly = {
+          type: 'ANOMALY',
+          score: mlResult.score,
+          ts: new Date()
+        };
+        await Anomaly.create({
+          touristId,
+          details: anomaly,
+          seq
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      anomaly,
+      Geofences
+    });
+
+  } catch (err) {
+    console.error('locationUpdate error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
 };
+
 
 /**
  * Verify a tourist’s validity
