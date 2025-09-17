@@ -57,7 +57,7 @@ touro_care/
 #### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/yourusername/touro_care.git
+git clone https://github.com/madhu9613/touro_care.git
 cd touro_care
 ```
 
@@ -100,7 +100,7 @@ npm start
 
 - **backend/**: Express API, controllers, models, blockchain and ML integration, routes, middleware.
 - **frontend/**: Mobile/web app for tourists, police, and admin (React Native/Next.js).
-- **ml_backend/**: Python FastAPI ML microservice for anomaly detection, geofencing, etc.
+- **ml_backend/**: Python Flask ML microservice for anomaly detection, geofencing, etc.
 - **fabric-samples/**: Fabric network scripts, chaincode, and configuration.
 
 ---
@@ -114,11 +114,6 @@ npm start
 
 ---
 
-## Contributing
-
-Pull requests are welcome! Please open issues for bugs or feature requests.
-
----
 
 ## License
 
