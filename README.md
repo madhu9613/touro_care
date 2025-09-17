@@ -31,31 +31,39 @@
 
 ## 🛠 Getting Started  
 
-###  Prerequisites  
+### ✅ Prerequisites  
 - Node.js (v18+)  
 - Python (3.10+)  
 - Docker & Docker Compose  
 - Hyperledger Fabric binaries  
 - npm & pip  
 
+---
+
 ### ⚡ Setup Instructions  
 
-** Clone the Repository**  
 ```sh
+# Clone the Repository
 git clone https://github.com/madhu9613/touro_care.git
-cd touro_care ```
+cd touro_care
 
-** Setup Hyperledger Fabric Network**
+# Setup Hyperledger Fabric Network
 cd fabric-samples/test-network
 ./network.sh up createChannel -c mychannel -ca
 ./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-javascript/ -ccl javascript
+
+# Start the Backend Server
 cd ../../backend
 npm install
 cp .env.example .env   # Edit with your config
 node server.js
+
+# Start the ML Backend
 cd ../ml_backend
 pip install -r requirements.txt
 python api/server.py
+
+# Start the Frontend
 cd ../frontend/app
 npm install
 npm start
