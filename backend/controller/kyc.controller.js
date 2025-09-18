@@ -25,26 +25,34 @@ const otpStore = {};
 exports.submitKyc = async (req, res, next) => {
   try {
     const user = req.user; // logged-in tourist
-    const { aadhaarNumber, name, dob } = req.body;
+    const { aadhaarNumber, passportNumber, name, dob } = req.body;
 
-    if (!aadhaarNumber || !name || !dob) {
-      return res.status(400).json({ success: false, message: 'aadhaarNumber, name, dob required' });
+    // Validation: must provide either Aadhaar or Passport with name & dob
+    if ((!aadhaarNumber && !passportNumber) || !name || !dob) {
+      return res.status(400).json({
+        success: false,
+        message: 'aadhaarNumber or passportNumber (with name, dob) required'
+      });
     }
 
-    const kycHash = computeKycHash(aadhaarNumber, name, dob);
+    // Use Aadhaar if provided, else Passport
+    const idNumber = aadhaarNumber || passportNumber;
+    const idType = aadhaarNumber ? 'aadhaar' : 'passport';
 
-    // Check if this Aadhaar already approved for the same tourist
+    const kycHash = computeKycHash(idNumber, name, dob);
+
+    // Check if this ID already approved for the same tourist
     const existingKyc = await KycRequest.findOne({
       touristId: user.walletId,
       kycHash,
       status: { $in: ['approved', 'auto_approved'] }
     });
     if (existingKyc) {
-      return res.status(400).json({ success: false, message: 'This Aadhaar is already verified for you' });
+      return res.status(400).json({
+        success: false,
+        message: `This ${idType} is already verified for you`
+      });
     }
-
-    // Verify Aadhaar details from mock DB
-    const record = adhaarDB.find(a => a.aadhaarNumber === aadhaarNumber);
 
     let status = 'pending';
     let autoResult = null;
@@ -54,22 +62,41 @@ exports.submitKyc = async (req, res, next) => {
       url: f.path
     })) || [];
 
-    if (!record || record.name !== name || record.dob !== dob) {
-      // Aadhaar mismatch → require proof documents
-      if (!documents.length) {
-        return res.status(400).json({ success: false, message: 'Proof documents required for manual review' });
+    let record = null;
+
+    if (aadhaarNumber) {
+      // Aadhaar verification from mock DB
+      record = adhaarDB.find(a => a.aadhaarNumber === aadhaarNumber);
+
+      if (!record || record.name !== name || record.dob !== dob) {
+        // Aadhaar mismatch → require proof documents
+        if (!documents.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'Proof documents required for manual review'
+          });
+        }
+        autoResult = { reason: 'Aadhaar details mismatch', proofProvided: true };
+        console.log(`Aadhaar mismatch for ${aadhaarNumber}, sent for manual review.`);
+      } else {
+        // Aadhaar match → generate OTP
+        const otp = generateOtp();
+        otpStore[kycHash] = {
+          otp,
+          touristId: user.walletId,
+          expires: Date.now() + 5 * 60 * 1000 // 5 min expiry
+        };
+        console.log(`Demo OTP for ${aadhaarNumber}: ${otp}`);
       }
-      autoResult = { reason: 'Aadhaar details mismatch', proofProvided: true };
-      console.log(`Aadhaar mismatch for ${aadhaarNumber}, sent for manual review.`);
     } else {
-      // Aadhaar match → generate OTP
-      const otp = generateOtp();
-      otpStore[kycHash] = {
-        otp,
-        touristId: user.walletId,
-        expires: Date.now() + 5 * 60 * 1000 // 5 min expiry
-      };
-      console.log(`Demo OTP for ${aadhaarNumber}: ${otp}`);
+      // Passport flow → always manual review (no OTP in this mock)
+      if (!documents.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Passport requires proof documents for review'
+        });
+      }
+      autoResult = { reason: 'Passport verification requires manual review', proofProvided: true };
     }
 
     // Save KYC request
@@ -78,7 +105,8 @@ exports.submitKyc = async (req, res, next) => {
       touristId: user.walletId,
       userId: user._id,
       payload: {
-        aadhaarNumber: maskAadhaar(aadhaarNumber),
+        idType,
+        idNumber: aadhaarNumber ? maskAadhaar(aadhaarNumber) : `PASSPORT-${idNumber}`,
         name,
         dob
       },
@@ -91,9 +119,9 @@ exports.submitKyc = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: record && record.name === name && record.dob === dob
+      message: aadhaarNumber && record && record.name === name && record.dob === dob
         ? 'OTP sent to linked mobile number'
-        : 'Aadhaar details mismatched; sent for manual review with proof documents',
+        : 'Details sent for manual review with proof documents',
       requestId: kycDoc.requestId
     });
 
