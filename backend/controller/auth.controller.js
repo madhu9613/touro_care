@@ -7,7 +7,7 @@ const { generateWalletId } = require('../services/fabricService.js');
 
 // Utility to determine default org based on roles
 function defaultOrg(roles) {
-  if (roles.includes('police') || roles.includes('admin')) return 'Org2';
+  if (roles.includes('police') || roles.includes('admin2')) return 'Org2';
   return 'Org1';
 }
 
@@ -110,6 +110,18 @@ exports.me = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('-passwordHash');
     res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+};
+exports.logout = async (req, res, next) => {
+  try {
+    // If you are not blacklisting tokens, just return success
+    // Client must delete token locally
+    res.json({ success: true, message: "Logged out successfully" });
+
+    // OPTIONAL: If you want to blacklist the token
+    // You would push req.token (from middleware) into a blacklist DB or cache
   } catch (err) {
     next(err);
   }
