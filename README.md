@@ -1,129 +1,69 @@
-# Touro Care
+# 🌍 Touro Care
 
-Touro Care is a full-stack platform designed to enhance tourist safety and digital identity management using Hyperledger Fabric blockchain, machine learning, and modern web/mobile technologies.
-
----
-
-## Table of Contents
-
-- [Project Structure](#project-structure)
-- [Features](#features)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Setup Instructions](#setup-instructions)
-- [Directory Overview](#directory-overview)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
+**Touro Care** is a full-stack platform designed to enhance **tourist safety** and **digital identity management** using **Hyperledger Fabric blockchain**, **machine learning**, and **modern web/mobile technologies**.
 
 ---
 
-## Project Structure
+## 🚀 Tech Stack  
 
-```
-touro_care/
-├── backend/           # Node.js/Express backend API, blockchain integration
-├── frontend/          # Frontend app (React Native/Next.js)
-├── ml_backend/        # Python ML microservice for anomaly detection, geofencing, etc.
-└── fabric-samples/    # Hyperledger Fabric network, chaincode, and sample apps
-```
-
----
-
-## Features
-
-- **Tourist Digital ID**: Secure registration and management of tourist identities on blockchain.
-- **KYC & Biometric Verification**: Multi-step KYC with document and biometric checks.
-- **Trip & Location Tracking**: Real-time trip details and geofencing for safety.
-- **Anomaly Detection**: ML-powered detection of unusual activity or emergencies.
-- **Emergency Alerts**: Automated alerts and logs for authorities and tourists.
-- **Admin & Police Dashboards**: Role-based access for monitoring and intervention.
-- **Cloud Storage**: Secure document/image uploads via Cloudinary.
+![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)  
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)  
+![React Native](https://img.shields.io/badge/React%20Native-Mobile%20App-61DAFB?logo=react)  
+![Next.js](https://img.shields.io/badge/Next.js-Frontend-black?logo=next.js)  
+![Hyperledger Fabric](https://img.shields.io/badge/Hyperledger%20Fabric-Blockchain-blue?logo=hyperledger)  
+![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)  
+![Machine Learning](https://img.shields.io/badge/ML-Anomaly%20Detection-orange?logo=tensorflow)  
+![Cloudinary](https://img.shields.io/badge/Cloudinary-Storage-lightblue?logo=cloudinary)  
 
 ---
 
-## Getting Started
+## ✨ Features  
 
-### Prerequisites
+- 🔐 **Tourist Digital ID** – Secure registration & management on blockchain  
+- 🪪 **KYC & Biometric Verification** – Multi-step document & biometric checks  
+- 📍 **Trip & Location Tracking** – Real-time geofencing & trip safety monitoring  
+- 🤖 **Anomaly Detection** – ML-powered unusual activity & emergency detection  
+- 🚨 **Emergency Alerts** – Automated notifications for tourists & authorities  
+- 🛡 **Admin & Police Dashboards** – Role-based monitoring & intervention  
+- ☁️ **Cloud Storage** – Secure file uploads via Cloudinary  
 
-- Node.js (v18+)
-- Python (3.10+)
-- Docker & Docker Compose
-- Hyperledger Fabric binaries
-- npm, pip
+---
 
-### Setup Instructions
+## 🛠 Getting Started  
 
-#### 1. Clone the Repository
+### ✅ Prerequisites  
+- Node.js (v18+)  
+- Python (3.10+)  
+- Docker & Docker Compose  
+- Hyperledger Fabric binaries  
+- npm & pip  
+
+---
+
+### ⚡ Setup Instructions  
 
 ```sh
+# Clone the Repository
 git clone https://github.com/madhu9613/touro_care.git
 cd touro_care
-```
 
-#### 2. Setup Hyperledger Fabric Network
-
-```sh
+# Setup Hyperledger Fabric Network
 cd fabric-samples/test-network
 ./network.sh up createChannel -c mychannel -ca
 ./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-javascript/ -ccl javascript
-```
 
-#### 3. Start the Backend Server
-
-```sh
+# Start the Backend Server
 cd ../../backend
 npm install
 cp .env.example .env   # Edit with your config
 node server.js
-```
 
-#### 4. Start the ML Backend
-
-```sh
+# Start the ML Backend
 cd ../ml_backend
 pip install -r requirements.txt
 python api/server.py
-```
 
-#### 5. Start the Frontend
-
-```sh
+# Start the Frontend
 cd ../frontend/app
 npm install
 npm start
-```
-
----
-
-## Directory Overview
-
-- **backend/**: Express API, controllers, models, blockchain and ML integration, routes, middleware.
-- **frontend/**: Mobile/web app for tourists, police, and admin (React Native/Next.js).
-- **ml_backend/**: Python Flask ML microservice for anomaly detection, geofencing, etc.
-- **fabric-samples/**: Fabric network scripts, chaincode, and configuration.
-
----
-
-## Usage
-
-- Register as a tourist via `/api/auth/register`
-- Complete KYC and biometric verification
-- Track trips and receive safety alerts
-- Admins and police can monitor activity and respond to emergencies
-
----
-
-
-## License
-
-This project is licensed under the [Apache-2.0 License](LICENSE).
-
----
-
-## Acknowledgements
-
-- [Hyperledger Fabric](https://www.hyperledger.org/use/fabric)
-- [Cloudinary](https://cloudinary.com/)
-- [React Native](https://reactnative.dev/)
-- [FastAPI](https://fastapi.tiangolo.com/)
