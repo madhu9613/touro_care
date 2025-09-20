@@ -1,13 +1,38 @@
+// frontend/pages/alertpage.tsx
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 import { AlertCard } from "@/components/AlertCard";
+import { initWebSocket } from "../utils/wsUtils";
 
-const alerts = [
-  { id: "ALT-101", type: "critical", title: "SOS Activated", description: "Emergency button pressed", location: "Delhi Airport", touristName: "John Doe", timestamp: "Just now" },
-  { id: "ALT-102", type: "high", title: "Geo-fence Violation", description: "Entered restricted zone", location: "Indo-China Border", touristName: "Amit Sharma", timestamp: "10 min ago" }
-];
+const BASE_URL = "http://localhost:4000";
 
 export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<any[]>([]);
+
+  // Fetch active alerts
+  useEffect(() => {
+    async function fetchAlerts() {
+      try {
+        const res = await fetch(`${BASE_URL}/api/alerts/active`);
+        const data = await res.json();
+        if (data.success) setAlerts(data.alerts);
+      } catch (err) {
+        console.error("Failed to fetch alerts", err);
+      }
+    }
+    fetchAlerts();
+  }, []);
+
+  // WebSocket for live updates
+  useEffect(() => {
+    initWebSocket((topic, payload) => {
+      if (topic === "emergency_contact" || topic === "authorities") {
+        setAlerts((prev) => [payload, ...prev]);
+      }
+    });
+  }, []);
+
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-3xl font-bold tracking-tight">Alert Center</h2>
@@ -19,9 +44,7 @@ export default function AlertsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {alerts.map((alert) => (
-            <AlertCard key={alert.id} {...alert} />
-          ))}
+          {alerts.length === 0 ? <p>No active alerts</p> : alerts.map((alert) => <AlertCard key={alert._id || alert.alertId} {...alert} />)}
         </CardContent>
       </Card>
     </div>

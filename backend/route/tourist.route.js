@@ -68,7 +68,7 @@ router.patch('/status', auth, requireRole(['police', 'admin']), touristControlle
 router.post('/sos/respond', auth, requireRole(['police', 'admin']), touristController.respondToSOS);
 
 // Get comprehensive tourist details
-router.get('/details/:touristId', auth, requireRole(['police', 'admin']), touristController.getTouristDetails);
+router.get('/details/:touristId', touristController.getTouristDetails);
 
 
 // // ================= ML/ANALYTICS ROUTES =================
