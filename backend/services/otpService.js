@@ -44,4 +44,18 @@ function verifyOtp(phone, otpInput) {
     return false;
 }
 
-module.exports = { generateOtp, verifyOtp };
+async function sendOtp(phone, otp) {
+    const apiKey = process.env.SMSGATEWAY_API_KEY;
+    const senderId = process.env.SMSGATEWAY_SENDER_ID;
+
+    const url = `https://www.smsgatewayhub.com/api/mt/SendSMS?APIKey=${apiKey}&senderid=${senderId}&channel=2&DCS=0&flashsms=0&number=${phone}&text=Your OTP is: ${otp}&route=1`;
+
+    try {
+        const response = await axios.get(url);
+        console.log(`[SMS SERVICE] OTP sent to ${phone}:`, response.data);
+    } catch (error) {
+        console.error('[SMS SERVICE] Error sending OTP:', error.response?.data || error.message);
+    }
+}
+
+module.exports = { generateOtp, verifyOtp , sendOtp };

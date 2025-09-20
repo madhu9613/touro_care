@@ -26,6 +26,7 @@ router.post('/verify-otp', auth, requireRole(['tourist']), kycController.verifyO
 router.get(
   '/pending',
   auth,
+  
   requireRole(['tourism', 'issuer', 'admin']),
   kycController.listPending
 );
