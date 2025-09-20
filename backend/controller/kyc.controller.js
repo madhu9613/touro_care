@@ -191,6 +191,7 @@ exports.listPending = async (req, res, next) => {
 /**
  * Review KYC manually
  */
+
 exports.review = async (req, res, next) => {
   try {
     const { requestId } = req.params;

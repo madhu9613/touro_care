@@ -131,7 +131,7 @@ exports.registerTourist = async (req, res, next) => {
             }] : []
         };
 
-        // Register on blockchain
+        // Register on blockchain - Updated for new smart contract
         const chainRes = await safeSubmit(
             org,
             identity,
@@ -139,8 +139,9 @@ exports.registerTourist = async (req, res, next) => {
             primaryDigitalId,
             primaryKyc.kycHash,
             JSON.stringify(itinerarySummary),
-            JSON.stringify([]),
+            JSON.stringify(emergencyContacts),
             new Date(expiryAt).toISOString()
+            // JSON.stringify({ securityScore, registeredAt: new Date().toISOString() })
         );
 
         const parsedChain = JSON.parse(chainRes.toString());
@@ -200,6 +201,26 @@ exports.locationUpdate = async (req, res, next) => {
         });
         await locationData.save();
 
+        // Record location event on blockchain
+        const eventId = `LOC_${Date.now()}_${nano()}`;
+        const locationEvent = {
+            lat: loc.lat,
+            lon: loc.lon,
+            speed: loc.speed,
+            ts: ts.toISOString(),
+            deviceId,
+            accuracy: loc.accuracy || null
+        };
+
+        await safeSubmit(
+            org,
+            identity,
+            'RecordLocation',
+            eventId,
+            touristId,
+            JSON.stringify(locationEvent)
+        );
+
         // Update last known location in digital ID
         await DigitalId.updateOne(
             { digitalId: touristId },
@@ -249,6 +270,22 @@ exports.locationUpdate = async (req, res, next) => {
                     score: mlResult.score,
                     ts: new Date()
                 };
+                
+                // Record anomaly on blockchain
+                const anomalyEventId = `ANOM_${Date.now()}_${nano()}`;
+                await safeSubmit(
+                    org,
+                    identity,
+                    'RecordAnomaly',
+                    anomalyEventId,
+                    touristId,
+                    JSON.stringify({
+                        ...anomaly,
+                        sequenceLength: seq.length,
+                        locations: seq.slice(-5) // Store last 5 locations
+                    })
+                );
+
                 await Anomaly.create({
                     touristId,
                     details: anomaly,
@@ -281,8 +318,8 @@ exports.locationUpdate = async (req, res, next) => {
 // ---------- SOS Alert ----------
 exports.sosAlert = async (req, res, next) => {
     try {
-         const touristId = req.user?.walletId;
-        const {  deviceId, location, message } = req.body;
+        const touristId = req.user?.walletId;
+        const { deviceId, location, message } = req.body;
         
         if (!touristId) {
             return res.status(400).json({ success: false, message: 'touristId is required' });
@@ -304,6 +341,25 @@ exports.sosAlert = async (req, res, next) => {
             responseTime: null
         });
         await sosAlert.save();
+
+        // Record SOS event on blockchain
+        const eventId = `SOS_${Date.now()}_${nano()}`;
+        const sosEvent = {
+            alertId: sosAlert._id.toString(),
+            location: location || tourist.lastKnownLocation,
+            message,
+            deviceId,
+            ts: new Date().toISOString()
+        };
+
+        await safeSubmit(
+            DEFAULT_ORG,
+            DEFAULT_IDENTITY,
+            'RecordSOS',
+            eventId,
+            touristId,
+            JSON.stringify(sosEvent)
+        );
 
         // Notify emergency contacts
         const emergencyContacts = decryptObject(tourist.emergencyContactsEncrypted);
@@ -341,7 +397,8 @@ exports.sosAlert = async (req, res, next) => {
 // ---------- Submit Feedback ----------
 exports.submitFeedback = async (req, res, next) => {
     try {
-        const { touristId, rating, comments, category } = req.body;
+        const touristId = req.user?.walletId;
+        const { rating, comments, category } = req.body;
         
         if (!touristId || !rating) {
             return res.status(400).json({ success: false, message: 'touristId and rating are required' });
@@ -355,6 +412,24 @@ exports.submitFeedback = async (req, res, next) => {
             status: 'submitted'
         });
         await feedback.save();
+
+        // Record feedback event on blockchain
+        const eventId = `FB_${Date.now()}_${nano()}`;
+        const feedbackEvent = {
+            feedbackId: feedback._id.toString(),
+            rating,
+            category,
+            ts: new Date().toISOString()
+        };
+
+        await safeSubmit(
+            DEFAULT_ORG,
+            DEFAULT_IDENTITY,
+            'RecordFeedback',
+            eventId,
+            touristId,
+            JSON.stringify(feedbackEvent)
+        );
 
         return res.json({
             success: true,
@@ -370,54 +445,72 @@ exports.submitFeedback = async (req, res, next) => {
 
 // ---------- File e-FIR ----------
 exports.fileEFIR = async (req, res, next) => {
-    try {
-        const touristId = req.user?.walletId;
-        const { incidentDetails, location, dateTime } = req.body;
+  try {
+    const touristId = req.user?.walletId;
+    const { incidentDetails, location, dateTime } = req.body;
 
-        if (!touristId || !incidentDetails) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'touristId and incidentDetails are required' 
-            });
-        }
-
-        // Generate unique EFIR ID
-        const efirId = `EFIR_${Date.now()}`;
-
-        const efir = new EFIR({
-            touristId,
-            efirId,
-            incidentDetails,
-            location,
-            dateTime: dateTime || new Date(),
-            
-            status: 'submitted',    
-            assignedTo: null,
-            resolution: null
-        });
-
-        await efir.save();
-
-        // // Notify police department
-        // await NotificationService.notifyPoliceDepartment({
-        //     type: 'EFIR_SUBMITTED',
-        //     touristId,
-        //     incidentDetails,
-        //     location,
-        //     timestamp: new Date(),
-        //     efirId: efir.efirId
-        // });
-
-        return res.json({
-            success: true,
-            message: 'e-FIR filed successfully',
-            efirId: efir.efirId
-        });
-
-    } catch (err) {
-        console.error('fileEFIR error:', err);
-        return res.status(500).json({ success: false, message: err.message });
+    // Validate required fields
+    if (!touristId || !incidentDetails) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'touristId and incidentDetails are required' 
+      });
     }
+
+    // Convert dateTime to Date object, fallback to current date
+    const dateTimeObj = dateTime ? new Date(dateTime) : new Date();
+    if (isNaN(dateTimeObj.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid dateTime format' });
+    }
+
+    // Generate unique EFIR ID
+    const efirId = `EFIR_${Date.now()}`;
+
+    // Create EFIR record
+    const efir = new EFIR({
+      touristId,
+      efirId,
+      incidentDetails,
+      location,
+      dateTime: dateTimeObj,
+      status: 'submitted',
+      assignedTo: null,
+      resolution: null
+    });
+
+    await efir.save();
+
+    // Prepare blockchain event
+    const eventId = `EFIR_${Date.now()}_${nano()}`;
+    const efirEvent = {
+      efirId: efir.efirId,
+      incidentDetails: typeof incidentDetails === 'string' ? incidentDetails : JSON.stringify(incidentDetails),
+      location,
+      dateTime: dateTimeObj.toISOString(),
+      ts: new Date().toISOString()
+    };
+
+    // Submit to blockchain
+    await safeSubmit(
+      DEFAULT_ORG,
+      DEFAULT_IDENTITY,
+      'RecordEFIR',
+      eventId,
+      touristId,
+      JSON.stringify(efirEvent)
+    );
+
+    // Respond to client
+    return res.json({
+      success: true,
+      message: 'e-FIR filed successfully',
+      efirId: efir.efirId
+    });
+
+  } catch (err) {
+    console.error('fileEFIR error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 // ---------- Verify Tourist (for authorities) ----------
@@ -461,7 +554,7 @@ exports.verifyTourist = async (req, res, next) => {
 // ---------- Update Tourist Status (for authorities) ----------
 exports.updateTouristStatus = async (req, res, next) => {
     try {
-        const {  status, reason, changedBy } = req.body;
+        const { touristId, status, reason, changedBy } = req.body;
         const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.query;
 
         if (!touristId || !status) {
@@ -596,6 +689,22 @@ exports.getTouristDetails = async (req, res, next) => {
             console.warn('Could not fetch blockchain data:', err.message);
         }
 
+        // Get recent events from blockchain
+        let recentEvents = [];
+        try {
+            const query = {
+                selector: {
+                    touristId: touristId
+                },
+                sort: [{ createdAt: 'desc' }],
+                limit: 10
+            };
+            const eventsResult = await evaluateTransaction(DEFAULT_ORG, DEFAULT_IDENTITY, 'QueryTourists', JSON.stringify(query));
+            recentEvents = JSON.parse(eventsResult.toString());
+        } catch (err) {
+            console.warn('Could not fetch recent events:', err.message);
+        }
+
         // Get recent locations
         const recentLocations = await Location.find({ touristId })
             .sort({ ts: -1 })
@@ -611,6 +720,7 @@ exports.getTouristDetails = async (req, res, next) => {
             data: {
                 digitalId: tourist,
                 blockchain: blockchainData,
+                recentEvents,
                 recentLocations,
                 recentAlerts
             }
@@ -618,6 +728,57 @@ exports.getTouristDetails = async (req, res, next) => {
 
     } catch (err) {
         console.error('getTouristDetails error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ---------- Query Tourists (for authorities) ----------
+exports.queryTourists = async (req, res, next) => {
+    try {
+        const { query, org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.body;
+
+        if (!query) {
+            return res.status(400).json({ success: false, message: 'Query is required' });
+        }
+
+        // Execute query on blockchain
+        const result = await evaluateTransaction(org, identity, 'QueryTourists', JSON.stringify(query));
+        const tourists = JSON.parse(result.toString());
+
+        res.json({
+            success: true,
+            data: tourists,
+            count: tourists.length
+        });
+
+    } catch (err) {
+        console.error('queryTourists error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ---------- Get Tourist History (for authorities) ----------
+exports.getTouristHistory = async (req, res, next) => {
+    try {
+        const { touristId } = req.params;
+        const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.query;
+
+        if (!touristId) {
+            return res.status(400).json({ success: false, message: 'touristId is required' });
+        }
+
+        // Get history from blockchain
+        const result = await evaluateTransaction(org, identity, 'GetTouristHistory', touristId);
+        const history = JSON.parse(result.toString());
+
+        res.json({
+            success: true,
+            data: history,
+            count: history.length
+        });
+
+    } catch (err) {
+        console.error('getTouristHistory error:', err);
         return res.status(500).json({ success: false, message: err.message });
     }
 };

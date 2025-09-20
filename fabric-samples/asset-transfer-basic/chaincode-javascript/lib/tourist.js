@@ -9,7 +9,6 @@ const addFormats = require("ajv-formats");
 const ajv = new Ajv({ allErrors: true, coerceTypes: true, useDefaults: true });
 addFormats(ajv);  // enable "date-time", "email", etc.
 
-
 // JSON schema for tourist record (ledger representation)
 const TOURIST_SCHEMA = {
     type: 'object',
@@ -63,7 +62,10 @@ const TOURIST_SCHEMA = {
                 suspensionReason: { type: 'string' },
                 suspendedAt: { type: 'string', format: 'date-time' },
                 lastVerified: { type: 'string', format: 'date-time' },
-                version: { type: 'number' }
+                version: { type: 'number' },
+                securityScore: { type: 'number' },
+                lastKnownLocation: { type: 'object' },
+                devices: { type: 'array' }
             },
             additionalProperties: false
         }
@@ -72,7 +74,21 @@ const TOURIST_SCHEMA = {
     additionalProperties: false
 };
 
+// Schema for events (location, SOS, feedback, eFIR, anomaly)
+const EVENT_SCHEMA = {
+    type: 'object',
+    properties: {
+        eventId: { type: 'string' },
+        touristId: { type: 'string' },
+        type: { type: 'string', enum: ['location', 'sos', 'feedback', 'efir', 'anomaly'] },
+        timestamp: { type: 'string', format: 'date-time' },
+        data: { type: 'object' }
+    },
+    required: ['eventId', 'touristId', 'type', 'timestamp']
+};
+
 const validateTourist = ajv.compile(TOURIST_SCHEMA);
+const validateEvent = ajv.compile(EVENT_SCHEMA);
 
 class TouristContract extends Contract {
     constructor() {
@@ -82,6 +98,11 @@ class TouristContract extends Contract {
     // Utility: construct composite key
     makeKey(ctx, touristId) {
         return ctx.stub.createCompositeKey('tourist', [touristId]);
+    }
+
+    // Utility: construct event key
+    makeEventKey(ctx, eventId) {
+        return ctx.stub.createCompositeKey('event', [eventId]);
     }
 
     // Utility: compute sha256
@@ -158,17 +179,7 @@ class TouristContract extends Contract {
     /**
      * Register a tourist on ledger.
      * Only 'issuer' role should be allowed to call this.
-     *
-     * @param ctx
-     * @param touristId - unique id assigned for tourist (string)
-     * @param kycHash - sha256 hash of KYC JSON (string)
-     * @param itineraryJSON - stringified JSON of itinerary (string)
-     * @param emergencyContactsJSON - stringified JSON array of contacts
-     * @param expiryAt - ISO datetime string for expiry (string)
-     * @param metadataJSON - optional stringified metadata
      */
-
-
     async RegisterTourist(ctx, touristId, kycHash, itineraryJSON, emergencyContactsJSON, expiryAt, metadataJSON = '{}') {
         // Access control: only issuer
         this._requireRole(ctx, ['issuer', 'Org1MSP']);
@@ -247,6 +258,289 @@ class TouristContract extends Contract {
     }
 
     /**
+     * Record location event for a tourist
+     */
+    async RecordLocation(ctx, eventId, touristId, locationJSON) {
+        this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
+        
+        if (!eventId || !touristId || !locationJSON) {
+            throw new Error('eventId, touristId, and locationJSON are required');
+        }
+
+        // Check if tourist exists
+        const touristKey = this.makeKey(ctx, touristId);
+        const touristData = await ctx.stub.getState(touristKey);
+        if (!touristData || touristData.length === 0) {
+            throw new Error(`Tourist ${touristId} not found`);
+        }
+
+        let locationData;
+        try {
+            locationData = JSON.parse(locationJSON);
+        } catch (err) {
+            throw new Error('Invalid location JSON: ' + err.message);
+        }
+
+        const now = new Date(ctx.stub.getTxTimestamp().seconds * 1000);
+        const timestamp = now.toISOString();
+
+        const event = {
+            eventId,
+            touristId,
+            type: 'location',
+            timestamp,
+            data: locationData
+        };
+
+        // Validate event
+        const valid = validateEvent(event);
+        if (!valid) {
+            throw new Error('Event validation failed: ' + JSON.stringify(validateEvent.errors));
+        }
+
+        // Save event
+        const eventKey = this.makeEventKey(ctx, eventId);
+        await ctx.stub.putState(eventKey, Buffer.from(JSON.stringify(event)));
+
+        // Update tourist's last known location in metadata
+        const tourist = JSON.parse(touristData.toString());
+        tourist.metadata = tourist.metadata || {};
+        tourist.metadata.lastKnownLocation = locationData;
+        tourist.updatedAt = timestamp;
+
+        await ctx.stub.putState(touristKey, Buffer.from(JSON.stringify(tourist)));
+
+        ctx.stub.setEvent('LocationRecorded', Buffer.from(JSON.stringify({
+            eventId,
+            touristId,
+            timestamp,
+            txId: ctx.stub.getTxID()
+        })));
+
+        return event;
+    }
+
+    /**
+     * Record SOS alert for a tourist
+     */
+    async RecordSOS(ctx, eventId, touristId, sosJSON) {
+        this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
+        
+        if (!eventId || !touristId || !sosJSON) {
+            throw new Error('eventId, touristId, and sosJSON are required');
+        }
+
+        // Check if tourist exists
+        const touristKey = this.makeKey(ctx, touristId);
+        const touristData = await ctx.stub.getState(touristKey);
+        if (!touristData || touristData.length === 0) {
+            throw new Error(`Tourist ${touristId} not found`);
+        }
+
+        let sosData;
+        try {
+            sosData = JSON.parse(sosJSON);
+        } catch (err) {
+            throw new Error('Invalid SOS JSON: ' + err.message);
+        }
+
+        const now = new Date(ctx.stub.getTxTimestamp().seconds * 1000);
+        const timestamp = now.toISOString();
+
+        const event = {
+            eventId,
+            touristId,
+            type: 'sos',
+            timestamp,
+            data: sosData
+        };
+
+        // Validate event
+        const valid = validateEvent(event);
+        if (!valid) {
+            throw new Error('Event validation failed: ' + JSON.stringify(validateEvent.errors));
+        }
+
+        // Save event
+        const eventKey = this.makeEventKey(ctx, eventId);
+        await ctx.stub.putState(eventKey, Buffer.from(JSON.stringify(event)));
+
+        ctx.stub.setEvent('SOSRecorded', Buffer.from(JSON.stringify({
+            eventId,
+            touristId,
+            timestamp,
+            txId: ctx.stub.getTxID()
+        })));
+
+        return event;
+    }
+
+    /**
+     * Record feedback for a tourist
+     */
+    async RecordFeedback(ctx, eventId, touristId, feedbackJSON) {
+        this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
+        
+        if (!eventId || !touristId || !feedbackJSON) {
+            throw new Error('eventId, touristId, and feedbackJSON are required');
+        }
+
+        // Check if tourist exists
+        const touristKey = this.makeKey(ctx, touristId);
+        const touristData = await ctx.stub.getState(touristKey);
+        if (!touristData || touristData.length === 0) {
+            throw new Error(`Tourist ${touristId} not found`);
+        }
+
+        let feedbackData;
+        try {
+            feedbackData = JSON.parse(feedbackJSON);
+        } catch (err) {
+            throw new Error('Invalid feedback JSON: ' + err.message);
+        }
+
+        const now = new Date(ctx.stub.getTxTimestamp().seconds * 1000);
+        const timestamp = now.toISOString();
+
+        const event = {
+            eventId,
+            touristId,
+            type: 'feedback',
+            timestamp,
+            data: feedbackData
+        };
+
+        // Validate event
+        const valid = validateEvent(event);
+        if (!valid) {
+            throw new Error('Event validation failed: ' + JSON.stringify(validateEvent.errors));
+        }
+
+        // Save event
+        const eventKey = this.makeEventKey(ctx, eventId);
+        await ctx.stub.putState(eventKey, Buffer.from(JSON.stringify(event)));
+
+        ctx.stub.setEvent('FeedbackRecorded', Buffer.from(JSON.stringify({
+            eventId,
+            touristId,
+            timestamp,
+            txId: ctx.stub.getTxID()
+        })));
+
+        return event;
+    }
+
+    /**
+     * Record e-FIR for a tourist
+     */
+    async RecordEFIR(ctx, eventId, touristId, efirJSON) {
+        this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
+        
+        if (!eventId || !touristId || !efirJSON) {
+            throw new Error('eventId, touristId, and efirJSON are required');
+        }
+
+        // Check if tourist exists
+        const touristKey = this.makeKey(ctx, touristId);
+        const touristData = await ctx.stub.getState(touristKey);
+        if (!touristData || touristData.length === 0) {
+            throw new Error(`Tourist ${touristId} not found`);
+        }
+
+        let efirData;
+        try {
+            efirData = JSON.parse(efirJSON);
+        } catch (err) {
+            throw new Error('Invalid eFIR JSON: ' + err.message);
+        }
+
+        const now = new Date(ctx.stub.getTxTimestamp().seconds * 1000);
+        const timestamp = now.toISOString();
+
+        const event = {
+            eventId,
+            touristId,
+            type: 'efir',
+            timestamp,
+            data: efirData
+        };
+
+        // Validate event
+        const valid = validateEvent(event);
+        if (!valid) {
+            throw new Error('Event validation failed: ' + JSON.stringify(validateEvent.errors));
+        }
+
+        // Save event
+        const eventKey = this.makeEventKey(ctx, eventId);
+        await ctx.stub.putState(eventKey, Buffer.from(JSON.stringify(event)));
+
+        ctx.stub.setEvent('EFIRRecorded', Buffer.from(JSON.stringify({
+            eventId,
+            touristId,
+            timestamp,
+            txId: ctx.stub.getTxID()
+        })));
+
+        return event;
+    }
+
+    /**
+     * Record anomaly detection for a tourist
+     */
+    async RecordAnomaly(ctx, eventId, touristId, anomalyJSON) {
+        this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
+        
+        if (!eventId || !touristId || !anomalyJSON) {
+            throw new Error('eventId, touristId, and anomalyJSON are required');
+        }
+
+        // Check if tourist exists
+        const touristKey = this.makeKey(ctx, touristId);
+        const touristData = await ctx.stub.getState(touristKey);
+        if (!touristData || touristData.length === 0) {
+            throw new Error(`Tourist ${touristId} not found`);
+        }
+
+        let anomalyData;
+        try {
+            anomalyData = JSON.parse(anomalyJSON);
+        } catch (err) {
+            throw new Error('Invalid anomaly JSON: ' + err.message);
+        }
+
+        const now = new Date(ctx.stub.getTxTimestamp().seconds * 1000);
+        const timestamp = now.toISOString();
+
+        const event = {
+            eventId,
+            touristId,
+            type: 'anomaly',
+            timestamp,
+            data: anomalyData
+        };
+
+        // Validate event
+        const valid = validateEvent(event);
+        if (!valid) {
+            throw new Error('Event validation failed: ' + JSON.stringify(validateEvent.errors));
+        }
+
+        // Save event
+        const eventKey = this.makeEventKey(ctx, eventId);
+        await ctx.stub.putState(eventKey, Buffer.from(JSON.stringify(event)));
+
+        ctx.stub.setEvent('AnomalyRecorded', Buffer.from(JSON.stringify({
+            eventId,
+            touristId,
+            timestamp,
+            txId: ctx.stub.getTxID()
+        })));
+
+        return event;
+    }
+
+    /**
      * Get tourist by ID
      */
     async GetTourist(ctx, touristId) {
@@ -263,9 +557,6 @@ class TouristContract extends Contract {
 
     /**
      * Update tourist metadata (non-sensitive fields)
-     * Allowed roles: issuer (the one who created) or admin/police depending on attribute
-     *
-     * updatesJSON example: {"itinerary": {...}, "emergencyContacts":[...], "metadata": {...}}
      */
     async UpdateTourist(ctx, touristId, updatesJSON) {
         this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
@@ -330,7 +621,6 @@ class TouristContract extends Contract {
 
     /**
      * Revoke a tourist ID (e.g., lost card, fraud)
-     * Allowed roles: issuer OR admin
      */
     async RevokeTourist(ctx, touristId, reason = '') {
         this._requireRole(ctx, ['issuer', 'admin', 'Org1MSP']);
@@ -371,7 +661,6 @@ class TouristContract extends Contract {
 
     /**
      * Suspend a tourist ID temporarily
-     * Allowed roles: police OR admin
      */
     async SuspendTourist(ctx, touristId, reason = '') {
         this._requireRole(ctx, ['police', 'admin', 'Org1MSP']);
@@ -405,7 +694,6 @@ class TouristContract extends Contract {
 
     /**
      * Reinstate a suspended tourist
-     * Allowed roles: police OR admin OR original issuer
      */
     async ReinstateTourist(ctx, touristId) {
         this._requireRole(ctx, ['issuer', 'police', 'admin', 'Org1MSP']);
@@ -484,9 +772,7 @@ class TouristContract extends Contract {
 
     /**
      * Query tourists with CouchDB rich query (pass JSON query)
-     * Example: {"selector":{"status":"active"}}
      */
-    
     async QueryTourists(ctx, queryJSON) {
         // Restrict access to authorized roles
         this._requireRole(ctx, ['police', 'issuer', 'admin', 'Org1MSP']);
@@ -511,6 +797,37 @@ class TouristContract extends Contract {
                 const tourist = JSON.parse(record);
                 tourist.status = this._computeStatus(tourist);
                 results.push(tourist);
+            } catch (err) {
+                results.push(record);
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Query events with CouchDB rich query
+     */
+    async QueryEvents(ctx, queryJSON) {
+        this._requireRole(ctx, ['police', 'admin', 'Org1MSP']);
+        
+        let query;
+        try {
+            query = JSON.parse(queryJSON);
+        } catch (e) {
+            throw new Error('Invalid query JSON: ' + e.message);
+        }
+
+        if (!query.selector || Object.keys(query.selector).length === 0) {
+            throw new Error('Query must include selector conditions for security');
+        }
+
+        const iterator = await ctx.stub.getQueryResult(JSON.stringify(query));
+        const results = [];
+        for await (const res of iterator) {
+            const record = res.value.toString('utf8');
+            try {
+                const event = JSON.parse(record);
+                results.push(event);
             } catch (err) {
                 results.push(record);
             }
@@ -597,6 +914,28 @@ class TouristContract extends Contract {
     }
 
     /**
+     * Get all events for a tourist
+     */
+    async GetTouristEvents(ctx, touristId, eventType = '', limit = 50) {
+        this._requireRole(ctx, ['police', 'admin', 'Org1MSP']);
+        if (!touristId) throw new Error('touristId required');
+        
+        let query = {
+            selector: {
+                touristId: touristId
+            },
+            sort: [{ timestamp: 'desc' }],
+            limit: parseInt(limit) || 50
+        };
+        
+        if (eventType) {
+            query.selector.type = eventType;
+        }
+        
+        return await this.QueryEvents(ctx, JSON.stringify(query));
+    }
+
+    /**
      * Utility: compute kycHash from input string (for on-chain verification reference)
      */
     async ComputeKycHash(ctx, payloadJSON) {
@@ -612,6 +951,21 @@ class TouristContract extends Contract {
         const key = this.makeKey(ctx, touristId);
         const data = await ctx.stub.getState(key);
         return data && data.length > 0;
+    }
+
+    /**
+     * Get event by ID
+     */
+    async GetEvent(ctx, eventId) {
+        this._requireRole(ctx, ['police', 'admin', 'Org1MSP']);
+        if (!eventId) throw new Error('eventId required');
+        
+        const key = this.makeEventKey(ctx, eventId);
+        const data = await ctx.stub.getState(key);
+        if (!data || data.length === 0) {
+            throw new Error(`Event ${eventId} not found`);
+        }
+        return JSON.parse(data.toString());
     }
 }
 
