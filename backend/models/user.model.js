@@ -20,9 +20,11 @@ const userSchema = new mongoose.Schema({
     type: String, 
     enum: ['not_generated', 'active','deactive'], 
     default: 'not_generated' 
+
   },
 
   createdAt: { type: Date, default: Date.now }
 });
 
 module.exports = mongoose.model('User', userSchema);
+
