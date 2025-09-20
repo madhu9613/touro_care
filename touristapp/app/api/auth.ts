@@ -1,22 +1,46 @@
 import axios from "axios";
-
+import Storage from '../utils/storage'; // adjust the path
 const API_BASE = "http://localhost:4000/api"; // change to your backend URL (or ngrok if testing on phone)
 
 // LOGIN
 export const loginUser = async (email: string, password: string) => {
-  const response = await axios.post(`${API_BASE}/auth/login`, { email, password });
-  return response.data; // contains token + user
+  try {
+    const response = await axios.post(`${API_BASE}/auth/login`, { email, password });
+    const token = response.data?.token;
+    if (token) {
+      await Storage.setItem('token', token); // save securely
+    }
+    return response.data;
+  } catch (err) {
+    console.error('Login failed', err);
+    throw err;
+  }
 };
 
 // REGISTER
 // api/auth.ts
 export const registerUser = async (payload: { name: string; email: string; password: string; phone?: string }) => {
-  const response = await axios.post(`${API_BASE}/auth/register`, payload);
-  return response.data;
+  try {
+    const response = await axios.post(`${API_BASE}/auth/register`, payload);
+
+    const token = response.data?.token;
+    if (token) {
+      // Store the token securely
+      await Storage.setItem("token", token);
+    }
+
+    return response.data;
+  } catch (err: any) {
+    console.error("Registration failed", err.response?.data || err.message);
+    throw err;
+  }
 };
 
 // GET CURRENT USER
-export const getMe = async (token: string) => {
+export const getMe = async () => {
+  const token = await Storage.getItem('token');
+  if (!token) throw new Error('No token found');
+
   const response = await axios.get(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });

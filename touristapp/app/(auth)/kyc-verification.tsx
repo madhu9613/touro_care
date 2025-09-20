@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { FileText, Upload, CircleCheck as CheckCircle, User, CreditCard, Shield, Globe, Smartphone } from 'lucide-react-native';
+import { FileText, Upload, CircleCheck as CheckCircle, User, CreditCard, Shield, Globe, Smartphone, Camera, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import kycApi from '../api/kyc'; // Import the API module
+import kycApi from '../api/kyc';
 
-const getAuthToken = () => 'YOUR_AUTH_TOKEN'; // Optional if backend uses cookies
+const getAuthToken = () => 'YOUR_AUTH_TOKEN';
 
 interface Document {
   id: string;
@@ -35,10 +35,10 @@ export default function KYCVerification() {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [otpTimer, setOtpTimer] = useState(0);
   const [documentStatus, setDocumentStatus] = useState<Document[]>([]);
+  const [photo, setPhoto] = useState<any>(null);
 
-  // Reset document list when idType or nationality changes
   useEffect(() => {
-    setDocumentStatus([
+    const documents: Document[] = [
       {
         id: 'id_document',
         name: idType === 'aadhaar' ? 'Aadhaar Card (Front & Back)' : 'Passport Copy',
@@ -48,25 +48,29 @@ export default function KYCVerification() {
         icon: <CreditCard size={24} color="#16A34A" />,
       },
       {
-        id: 'visa',
-        name: 'Visa Document (If Applicable)',
-        type: 'visa',
-        required: formData.nationality !== 'Indian',
-        uploaded: false,
-        icon: <FileText size={24} color="#F59E0B" />,
-      },
-      {
         id: 'photo',
         name: 'Recent Photograph',
         type: 'photo',
         required: true,
-        uploaded: false,
+        uploaded: !!photo,
         icon: <User size={24} color="#8B5CF6" />,
-      },
-    ]);
-  }, [idType, formData.nationality]);
+      }
+    ];
+    
+    if (formData.nationality !== 'Indian') {
+      documents.splice(1, 0, {
+        id: 'visa',
+        name: 'Visa Document (If Applicable)',
+        type: 'visa',
+        required: true,
+        uploaded: false,
+        icon: <FileText size={24} color="#F59E0B" />,
+      });
+    }
+    
+    setDocumentStatus(documents);
+  }, [idType, formData.nationality, photo]);
 
-  // OTP timer
   const startOtpTimer = () => {
     setOtpTimer(300);
     const interval = setInterval(() => {
@@ -80,7 +84,6 @@ export default function KYCVerification() {
     }, 1000);
   };
 
-  // Submit KYC (initial verification)
   const handleIdSubmit = async () => {
     if (!formData.name || !formData.dob) {
       Alert.alert('Error', 'Please fill all required details');
@@ -95,6 +98,11 @@ export default function KYCVerification() {
       Alert.alert('Error', 'Please enter passport number');
       return;
     }
+    
+    if (!photo) {
+      Alert.alert('Error', 'Please upload your recent photograph');
+      return;
+    }
 
     setLoading(true);
 
@@ -104,6 +112,11 @@ export default function KYCVerification() {
       form.append('dob', formData.dob);
       if (idType === 'aadhaar') form.append('aadhaarNumber', formData.aadhaarNumber);
       else if (idType === 'passport') form.append('passportNumber', formData.passportNumber);
+      
+      // Append the photo
+      if (photo) {
+        form.append('photo', photo);
+      }
 
       const response = await kycApi.submitKyc(form);
 
@@ -139,7 +152,6 @@ export default function KYCVerification() {
     }
   };
 
-  // OTP verification
   const handleOtpVerify = async () => {
     if (!formData.otp) {
       Alert.alert('Error', 'Please enter OTP');
@@ -155,19 +167,58 @@ export default function KYCVerification() {
       const response = await kycApi.verifyOtpKyc({ otp: formData.otp, requestId });
       if (response.data.success) {
         Alert.alert('Success', 'Aadhaar verified successfully!');
-        setCurrentStep(3);
+        router.push('/trip-details');
       } else {
         Alert.alert('Error', response.data.message || 'Invalid OTP. Please try again.');
+        setVerificationFailed(true);
+        setDocumentStatus((prev) =>
+          prev.map((doc) => ({ ...doc, required: true }))
+        );
       }
     } catch (error: any) {
       console.error('OTP verification error', error.response?.data || error.message);
       Alert.alert('Error', 'Failed to verify OTP. Please try again.');
+      setVerificationFailed(true);
+      setDocumentStatus((prev) =>
+        prev.map((doc) => ({ ...doc, required: true }))
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Document upload
+  const uploadPhoto = async () => {
+    try {
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const fileUri = result.assets[0].uri;
+        const fileName = fileUri.split('/').pop();
+        const fileType = fileName?.split('.').pop();
+        const file = {
+          uri: fileUri,
+          name: fileName || `photo_${Date.now()}.${fileType || 'jpg'}`,
+          type: `image/${fileType || 'jpeg'}`
+        };
+        
+        setPhoto(file);
+      }
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      Alert.alert('Error', 'Failed to pick image from gallery.');
+    }
+  };
+
+  const removePhoto = () => {
+    setPhoto(null);
+  };
+
   const handleDocumentUpload = async (documentId: string) => {
     Alert.alert(
       'Upload Document',
@@ -185,17 +236,29 @@ export default function KYCVerification() {
       let result;
       if (method === 'camera') {
         await ImagePicker.requestCameraPermissionsAsync();
-        result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 1 });
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 1
+        });
       } else {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 1 });
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 1
+        });
       }
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = fileUri.split('/').pop();
         const fileType = fileName?.split('.').pop();
-        const file = { uri: fileUri, name: fileName || `document_${Date.now()}.${fileType || 'jpg'}`, type: `image/${fileType || 'jpeg'}` };
+        const file = {
+          uri: fileUri,
+          name: fileName || `document_${Date.now()}.${fileType || 'jpg'}`,
+          type: `image/${fileType || 'jpeg'}`
+        };
 
         setDocumentStatus((prev) =>
           prev.map((doc) => doc.id === documentId ? { ...doc, uploaded: true, uri: fileUri, file } : doc)
@@ -208,7 +271,6 @@ export default function KYCVerification() {
     }
   };
 
-  // Manual document submission
   const handleManualReviewSubmission = async () => {
     const requiredDocs = documentStatus.filter((doc) => doc.required);
     const uploadedRequiredDocs = requiredDocs.filter((doc) => doc.uploaded);
@@ -225,7 +287,9 @@ export default function KYCVerification() {
     if (idType === 'aadhaar') form.append('aadhaarNumber', formData.aadhaarNumber);
     else if (idType === 'passport') form.append('passportNumber', formData.passportNumber);
 
-    uploadedRequiredDocs.forEach((doc) => { if (doc.file) form.append('documents', doc.file); });
+    uploadedRequiredDocs.forEach((doc) => {
+      if (doc.file) form.append('documents', doc.file);
+    });
 
     try {
       const response = await kycApi.submitKyc(form);
@@ -242,8 +306,6 @@ export default function KYCVerification() {
       setLoading(false);
     }
   };
-
-  const handleContinue = () => { if (currentStep === 3) router.push('/trip-details'); };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -276,17 +338,66 @@ export default function KYCVerification() {
               <View style={styles.idForm}>
                 <View style={styles.inputContainer}>
                   <User size={20} color="#6B7280" style={styles.inputIcon} />
-                  <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#9CA3AF" value={formData.name} onChangeText={(text) => setFormData({...formData, name: text})} autoCapitalize="words" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Name"
+                    placeholderTextColor="#9CA3AF"
+                    value={formData.name}
+                    onChangeText={(text) => setFormData({...formData, name: text})}
+                    autoCapitalize="words"
+                  />
                 </View>
                 <View style={styles.inputContainer}>
                   <CreditCard size={20} color="#6B7280" style={styles.inputIcon} />
-                  <TextInput style={styles.input} placeholder={idType === 'aadhaar' ? "Aadhaar Number" : "Passport Number"} placeholderTextColor="#9CA3AF" value={idType === 'aadhaar' ? formData.aadhaarNumber : formData.passportNumber} onChangeText={(text) => setFormData({...formData, [idType === 'aadhaar' ? 'aadhaarNumber' : 'passportNumber']: text})} keyboardType={idType === 'aadhaar' ? "number-pad" : "default"} maxLength={idType === 'aadhaar' ? 12 : undefined} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder={idType === 'aadhaar' ? "Aadhaar Number" : "Passport Number"}
+                    placeholderTextColor="#9CA3AF"
+                    value={idType === 'aadhaar' ? formData.aadhaarNumber : formData.passportNumber}
+                    onChangeText={(text) => setFormData({...formData, [idType === 'aadhaar' ? 'aadhaarNumber' : 'passportNumber']: text})}
+                    keyboardType={idType === 'aadhaar' ? "number-pad" : "default"}
+                    maxLength={idType === 'aadhaar' ? 12 : undefined}
+                  />
                 </View>
                 <View style={styles.inputContainer}>
                   <CreditCard size={20} color="#6B7280" style={styles.inputIcon} />
-                  <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" placeholderTextColor="#9CA3AF" value={formData.dob} onChangeText={(text) => setFormData({...formData, dob: text})} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Date of Birth (YYYY-MM-DD)"
+                    placeholderTextColor="#9CA3AF"
+                    value={formData.dob}
+                    onChangeText={(text) => setFormData({...formData, dob: text})}
+                  />
                 </View>
-                <TouchableOpacity style={[styles.submitButton, loading && styles.submitButtonDisabled]} onPress={handleIdSubmit} disabled={loading}>
+                
+                {/* Photo Upload Section */}
+                <View style={styles.photoUploadSection}>
+                  <Text style={styles.sectionTitle}>Recent Photograph</Text>
+                  <Text style={styles.sectionDescription}>Please upload a clear recent photograph of yourself</Text>
+                  
+                  {!photo ? (
+                    <TouchableOpacity 
+                      style={styles.photoUploadButton}
+                      onPress={uploadPhoto}
+                    >
+                      <Camera size={24} color="#4F46E5" />
+                      <Text style={styles.photoUploadText}>Upload Photo from Gallery</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.photoPreviewContainer}>
+                      <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
+                      <TouchableOpacity style={styles.removePhotoButton} onPress={removePhoto}>
+                        <X size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                
+                <TouchableOpacity
+                  style={[styles.submitButton, (loading || !photo) && styles.submitButtonDisabled]}
+                  onPress={handleIdSubmit}
+                  disabled={loading || !photo}
+                >
                   {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>{`Verify ${idType === 'aadhaar' ? 'Aadhaar' : 'Passport'}`}</Text>}
                 </TouchableOpacity>
               </View>
@@ -303,12 +414,19 @@ export default function KYCVerification() {
                         <Text style={styles.documentStatus}>{document.required ? 'Required' : 'Optional'} • {document.uploaded ? 'Uploaded' : 'Not uploaded'}</Text>
                       </View>
                     </View>
-                    <TouchableOpacity style={[styles.uploadButton, document.uploaded && styles.uploadButtonSuccess]} onPress={() => handleDocumentUpload(document.id)}>
+                    <TouchableOpacity
+                      style={[styles.uploadButton, document.uploaded && styles.uploadButtonSuccess]}
+                      onPress={() => handleDocumentUpload(document.id)}
+                    >
                       {document.uploaded ? <CheckCircle size={20} color="#FFFFFF" /> : <Upload size={20} color="#4F46E5" />}
                     </TouchableOpacity>
                   </View>
                 ))}
-                <TouchableOpacity style={[styles.submitButton, loading && styles.submitButtonDisabled]} onPress={handleManualReviewSubmission} disabled={loading}>
+                <TouchableOpacity
+                  style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                  onPress={handleManualReviewSubmission}
+                  disabled={loading}
+                >
                   {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Submit for Manual Review</Text>}
                 </TouchableOpacity>
               </View>
@@ -324,7 +442,15 @@ export default function KYCVerification() {
             <View style={styles.otpContainer}>
               <View style={styles.inputContainer}>
                 <Smartphone size={20} color="#6B7280" style={styles.inputIcon} />
-                <TextInput style={styles.input} placeholder="Enter 6-digit OTP" placeholderTextColor="#9CA3AF" value={formData.otp} onChangeText={(text) => setFormData({...formData, otp: text})} keyboardType="number-pad" maxLength={6} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter 6-digit OTP"
+                  placeholderTextColor="#9CA3AF"
+                  value={formData.otp}
+                  onChangeText={(text) => setFormData({...formData, otp: text})}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
               </View>
               {otpTimer > 0 ? (
                 <Text style={styles.otpTimer}>OTP expires in: {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}</Text>
@@ -333,40 +459,13 @@ export default function KYCVerification() {
                   <Text style={styles.resendOtp}>Resend OTP</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={[styles.verifyButton, loading && styles.verifyButtonDisabled]} onPress={handleOtpVerify} disabled={loading}>
+              <TouchableOpacity
+                style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
+                onPress={handleOtpVerify}
+                disabled={loading}
+              >
                 {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.verifyButtonText}>Verify OTP</Text>}
               </TouchableOpacity>
-            </View>
-          </View>
-        );
-      
-      case 3:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Verification Complete</Text>
-            <Text style={styles.stepDescription}>Your identity verification has been completed successfully.</Text>
-            <View style={styles.successContainer}>
-              <View style={styles.successIcon}>
-                <CheckCircle size={48} color="#16A34A" />
-              </View>
-              <Text style={styles.successTitle}>Verification Successful</Text>
-              <Text style={styles.successDescription}>Your KYC verification is complete. Your digital tourist ID will be generated after trip details submission.</Text>
-            </View>
-            <View style={styles.reviewContainer}>
-              <View style={styles.reviewItem}>
-                <CheckCircle size={20} color="#16A34A" />
-                <Text style={styles.reviewText}>Identity verified</Text>
-              </View>
-              <View style={styles.reviewItem}>
-                <CheckCircle size={20} color="#16A34A" />
-                <Text style={styles.reviewText}>Documents validated</Text>
-              </View>
-              {idType === 'aadhaar' && (
-                <View style={styles.reviewItem}>
-                  <CheckCircle size={20} color="#16A34A" />
-                  <Text style={styles.reviewText}>Aadhaar authentication completed</Text>
-                </View>
-              )}
             </View>
           </View>
         );
@@ -380,7 +479,6 @@ export default function KYCVerification() {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
@@ -391,14 +489,13 @@ export default function KYCVerification() {
         <Text style={styles.subtitle}>KYC Verification</Text>
       </View>
 
-      {/* Progress Indicator */}
       <View style={styles.progressContainer}>
-        {[1, 2, 3].map((step) => (
+        {[1, 2].map((step) => (
           <View key={step} style={styles.progressStep}>
             <View style={[styles.progressCircle, currentStep >= step && styles.progressCircleActive]}>
               {currentStep > step ? <CheckCircle size={16} color="#FFFFFF" /> : <Text style={[styles.progressNumber, currentStep >= step && styles.progressNumberActive]}>{step}</Text>}
             </View>
-            {step < 3 && <View style={[styles.progressLine, currentStep > step && styles.progressLineActive]} />}
+            {step < 2 && <View style={[styles.progressLine, currentStep > step && styles.progressLineActive]} />}
           </View>
         ))}
       </View>
@@ -407,13 +504,7 @@ export default function KYCVerification() {
         {renderStepContent()}
       </ScrollView>
 
-      {/* Footer */}
       <View style={styles.footer}>
-        {currentStep === 3 && (
-          <TouchableOpacity style={[styles.continueButton, loading && styles.continueButtonDisabled]} onPress={handleContinue} disabled={loading}>
-            {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.continueButtonText}>Continue to Trip Details</Text>}
-          </TouchableOpacity>
-        )}
         <Text style={styles.securityNote}>🔒 All data is encrypted and secure. Your identification details are protected.</Text>
       </View>
     </View>
@@ -448,6 +539,47 @@ const styles = StyleSheet.create({
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, borderWidth: 1, borderColor: '#E5E7EB' },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: '#1F2937' },
+  
+  // Photo upload styles
+  photoUploadSection: { marginTop: 16 },
+  photoUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed'
+  },
+  photoUploadText: { marginLeft: 8, color: '#4F46E5', fontWeight: '500' },
+  photoPreviewContainer: {
+    position: 'relative',
+    width: 120,
+    height: 160,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    marginVertical: 8
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover'
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  
   submitButton: { backgroundColor: '#4F46E5', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   submitButtonDisabled: { backgroundColor: '#9CA3AF' },
   submitButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
@@ -467,16 +599,6 @@ const styles = StyleSheet.create({
   verifyButton: { backgroundColor: '#4F46E5', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   verifyButtonDisabled: { backgroundColor: '#9CA3AF' },
   verifyButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
-  successContainer: { backgroundColor: '#FFFFFF', padding: 24, borderRadius: 16, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E5E7EB' },
-  successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  successTitle: { fontSize: 20, fontWeight: 'bold', color: '#16A34A', marginBottom: 8 },
-  successDescription: { fontSize: 16, color: '#6B7280', textAlign: 'center', lineHeight: 24 },
-  reviewContainer: { backgroundColor: '#FFFFFF', padding: 20, borderRadius: 12, marginBottom: 24 },
-  reviewItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  reviewText: { fontSize: 16, color: '#1F2937', marginLeft: 12 },
   footer: { paddingHorizontal: 24, paddingBottom: 40 },
-  continueButton: { backgroundColor: '#4F46E5', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
-  continueButtonDisabled: { backgroundColor: '#9CA3AF' },
-  continueButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
   securityNote: { fontSize: 12, color: '#6B7280', textAlign: 'center' },
 });
