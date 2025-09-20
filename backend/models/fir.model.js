@@ -11,4 +11,4 @@ const EFIRSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('efirschema', EFIRSchema);
+module.exports = mongoose.model('EFIR', EFIRSchema);
