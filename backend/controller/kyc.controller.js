@@ -1,6 +1,7 @@
 'use strict';
-const crypto = require('crypto'); // <-- FIXED: crypto import
+const crypto = require('crypto'); // <-- crypto import
 const KycRequest = require('../models/kyc.model');
+const User = require('../models/user.model'); // <-- User model
 const { generateOtp } = require('../services/otpService');
 const adhaarDB = require('../config/adhar.json'); // mock Aadhaar JSON
 
@@ -21,7 +22,6 @@ const otpStore = {};
 /**
  * Submit KYC
  */
-
 exports.submitKyc = async (req, res, next) => {
   try {
     const user = req.user; // logged-in tourist
@@ -38,7 +38,6 @@ exports.submitKyc = async (req, res, next) => {
     // Use Aadhaar if provided, else Passport
     const idNumber = aadhaarNumber || passportNumber;
     const idType = aadhaarNumber ? 'aadhaar' : 'passport';
-
     const kycHash = computeKycHash(idNumber, name, dob);
 
     // Check if this ID already approved for the same tourist
@@ -47,6 +46,7 @@ exports.submitKyc = async (req, res, next) => {
       kycHash,
       status: { $in: ['approved', 'auto_approved'] }
     });
+
     if (existingKyc) {
       return res.status(400).json({
         success: false,
@@ -77,6 +77,7 @@ exports.submitKyc = async (req, res, next) => {
           });
         }
         autoResult = { reason: 'Aadhaar details mismatch', proofProvided: true };
+        await User.findByIdAndUpdate(user._id, { kycStatus: 'manual_review' });
         console.log(`Aadhaar mismatch for ${aadhaarNumber}, sent for manual review.`);
       } else {
         // Aadhaar match → generate OTP
@@ -86,6 +87,7 @@ exports.submitKyc = async (req, res, next) => {
           touristId: user.walletId,
           expires: Date.now() + 5 * 60 * 1000 // 5 min expiry
         };
+        await User.findByIdAndUpdate(user._id, { kycStatus: 'pending' });
         console.log(`Demo OTP for ${aadhaarNumber}: ${otp}`);
       }
     } else {
@@ -97,6 +99,7 @@ exports.submitKyc = async (req, res, next) => {
         });
       }
       autoResult = { reason: 'Passport verification requires manual review', proofProvided: true };
+      await User.findByIdAndUpdate(user._id, { kycStatus: 'manual_review' });
     }
 
     // Save KYC request
@@ -161,6 +164,9 @@ exports.verifyOtpKyc = async (req, res, next) => {
     kycDoc.updatedAt = new Date();
     await kycDoc.save();
 
+    // Update user status
+    await User.findByIdAndUpdate(user._id, { kycStatus: 'verified' });
+
     // Remove OTP from store
     delete otpStore[kycDoc.kycHash];
 
@@ -186,21 +192,27 @@ exports.listPending = async (req, res, next) => {
 /**
  * Review KYC manually (approve/reject)
  */
-
 exports.review = async (req, res, next) => {
   try {
     const { requestId } = req.params;
-    const { status,comment } = req.body;
-    if (!['approved','rejected'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
+    const { status, comment } = req.body;
+    if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
 
     const kycDoc = await KycRequest.findOne({ requestId });
     if (!kycDoc) return res.status(404).json({ message: 'KYC request not found' });
 
-   kycDoc.status = status;
+    kycDoc.status = status;
     kycDoc.reviewComment = comment || '';
     kycDoc.reviewerId = req.user._id;
     kycDoc.updatedAt = new Date();
     await kycDoc.save();
+
+    // Update User kycStatus
+    if (status === 'approved') {
+      await User.findByIdAndUpdate(kycDoc.userId, { kycStatus: 'verified' },{new:true});
+    } else if (status === 'rejected') {
+      await User.findByIdAndUpdate(kycDoc.userId, { kycStatus: 'failed' },{new:true});
+    }
 
     res.json({ success: true, kyc: kycDoc });
   } catch (err) {
