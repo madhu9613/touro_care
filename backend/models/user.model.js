@@ -7,8 +7,21 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String }, 
   roles: { type: [String], default: ['tourist'] }, // tourist, issuer, police, admin, tourism
   walletId: { type: String },
-  org: { type: String, enum: ['Org1','Org2'], default: 'Org1' }, // tie to Fabric org
+  org: { type: String, enum: ['Org1','Org2'], default: 'Org1' },
   phone: { type: String },
+
+  // Quick frontend status fields
+  kycStatus: { 
+    type: String, 
+    enum: ['not_started', 'pending', 'manual_review', 'verified', 'failed'], 
+    default: 'not_started' 
+  },
+  digitalIdStatus: { 
+    type: String, 
+    enum: ['not_generated', 'active','deactive'], 
+    default: 'not_generated' 
+  },
+
   createdAt: { type: Date, default: Date.now }
 });
 
