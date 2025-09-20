@@ -6,7 +6,7 @@ import { Shield, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const BASE_URL = "http://127.0.0.1:4000";
+const BASE_URL = "http://localhost:4000";
 
 export default function EFIRPage() {
   const [efirs, setEfirs] = useState<any[]>([]);

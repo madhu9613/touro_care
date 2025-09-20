@@ -3,14 +3,14 @@ import { getMe } from '../api/auth';
 import Storage from '../utils/storage';
 
 interface User {
-  _id: string; // matches API response
+  _id: string;
   name: string;
   email: string;
   roles: string[];
   org?: string;
   phone?: string;
   kycStatus?: 'not_started' | 'pending' | 'manual_review' | 'verified' | 'failed';
-  digitalIdStatus?: 'not_generated' | 'active' | 'deactive' | ''; 
+  digitalIdStatus?: 'not_generated' | 'active' | 'deactive' | '';
   walletId?: string;
   createdAt?: string;
 }
@@ -36,7 +36,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshUser = async () => {
     try {
       setLoading(true);
-      const res = await getMe(); // should return { success: true, data: {...user} }
+      const res = await getMe(); // { success: true, data: {...user} }
       const currentUser = res?.data;
       if (currentUser) {
         setUser(currentUser);
@@ -57,9 +57,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const loadUser = async () => {
       const stored = await Storage.getItem('user');
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
+      if (stored) setUser(JSON.parse(stored));
       await refreshUser();
     };
     loadUser();
