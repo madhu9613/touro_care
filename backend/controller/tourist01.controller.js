@@ -141,6 +141,7 @@ exports.registerTourist = async (req, res, next) => {
             JSON.stringify(itinerarySummary),
             JSON.stringify(emergencyContacts),
             new Date(expiryAt).toISOString()
+            
             // JSON.stringify({ securityScore, registeredAt: new Date().toISOString() })
         );
 
