@@ -1,24 +1,47 @@
 'use strict';
-const WebSocket = require('ws');
-const logger = require('../utils/logger');
+const { broadcast } = require('./wsService');
 
-let wss;
+// Send to emergency contacts (shown in dashboard)
+async function notifyEmergencyContact(contact, touristId, location, message) {
+  const payload = {
+    type: 'SOS_ALERT',
+    touristId,
+    contact,
+    location,
+    message,
+    timestamp: new Date()
+  };
 
-function startWsServer(port = process.env.WS_PORT || 5001) {
-  wss = new WebSocket.Server({ port });
-  wss.on('connection', ws => {
-    logger.info('WS client connected');
-    ws.on('close', () => logger.info('WS client disconnected'));
-  });
-  logger.info(`WebSocket server running on port ${port}`);
+  broadcast('emergency_contact', payload);
+  return true;
 }
 
-function broadcast(topic, payload) {
-  if (!wss) return;
-  const msg = JSON.stringify({ topic, payload });
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  });
+// Send to authorities (shown in dashboard)
+async function notifyAuthorities(alert) {
+  const payload = {
+    type: 'AUTHORITIES_ALERT',
+    ...alert,
+    timestamp: new Date()
+  };
+
+  broadcast('authorities', payload);
+  return true;
 }
 
-module.exports = { startWsServer, broadcast };
+// Send to tourist (optional)
+async function notifyTourist(alert) {
+  const payload = {
+    type: 'TOURIST_NOTIFICATION',
+    ...alert,
+    timestamp: new Date()
+  };
+
+  broadcast('tourist', payload);
+  return true;
+}
+
+module.exports = {
+  notifyEmergencyContact,
+  notifyAuthorities,
+  notifyTourist
+};

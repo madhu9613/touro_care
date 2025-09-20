@@ -1,7 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
 
-
 const EFIRSchema = new mongoose.Schema({
   efirId: { type: String, unique: true },       // Changed firId → efirId for consistency
   touristId: { type: String, required: true },

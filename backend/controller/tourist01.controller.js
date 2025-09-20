@@ -281,7 +281,8 @@ exports.locationUpdate = async (req, res, next) => {
 // ---------- SOS Alert ----------
 exports.sosAlert = async (req, res, next) => {
     try {
-        const { touristId, deviceId, location, message } = req.body;
+         const touristId = req.user?.walletId;
+        const {  deviceId, location, message } = req.body;
         
         if (!touristId) {
             return res.status(400).json({ success: false, message: 'touristId is required' });
@@ -299,7 +300,6 @@ exports.sosAlert = async (req, res, next) => {
             deviceId,
             location: location || tourist.lastKnownLocation,
             message,
-            status: 'active',
             respondedBy: null,
             responseTime: null
         });
@@ -461,7 +461,7 @@ exports.verifyTourist = async (req, res, next) => {
 // ---------- Update Tourist Status (for authorities) ----------
 exports.updateTouristStatus = async (req, res, next) => {
     try {
-        const { touristId, status, reason, changedBy } = req.body;
+        const {  status, reason, changedBy } = req.body;
         const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.query;
 
         if (!touristId || !status) {

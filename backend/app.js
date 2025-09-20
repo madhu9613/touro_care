@@ -6,8 +6,10 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const logger = require('./utils/logger');
+const { startWsServer } = require('./services/wsService');
 
 require('dotenv').config();
+
 
 const authRoutes = require('./route/auth.route.js');
 const touristRoutes = require('./route/tourist.route.js');
@@ -28,7 +30,8 @@ mongoose.connect(process.env.MONGO_URI, {
     process.exit(1);
   });
 
-  
+startWsServer(5001);
+
 // Middlewares
 app.use(helmet());
 app.use(cors());
