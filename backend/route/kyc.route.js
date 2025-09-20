@@ -10,6 +10,7 @@ const parser = require('../middleware/upload.middleware.js'); // multer cloudina
 router.post(
   '/submit',
   auth,
+  
   requireRole(['tourist']),
   parser.array('documents', 5), // max 5 documents
   kycController.submitKyc

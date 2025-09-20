@@ -1,14 +1,25 @@
 'use strict';
 const mongoose = require('mongoose');
+
+
 const EFIRSchema = new mongoose.Schema({
-  firId: { type: String, unique: true },
+  efirId: { type: String, unique: true },       // Changed firId → efirId for consistency
   touristId: { type: String, required: true },
-  type: { type: String, required: true }, // theft, accident, harassment...
-  description: String,
-  attachments: [String], // URLs to encrypted photos/docs
+  incidentDetails: { type: String, required: true },
+  location: String,
+  dateTime: { type: Date, default: Date.now },
+  attachments: [String],                        // URLs to encrypted photos/docs
   status: { type: String, enum: ['submitted', 'under_review', 'resolved'], default: 'submitted' },
+  assignedTo: { type: String, default: null },
+  resolution: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('efirschema', EFIRSchema);
+// Update `updatedAt` on every save
+EFIRSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+module.exports = mongoose.model('EFIR', EFIRSchema);
