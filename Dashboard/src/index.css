@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smart Tourist Safety Monitoring Dashboard Design System */
+
+
+@layer base {
+  :root {
+    /* Control Room Dark Theme */
+    --background: 218 23% 6%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 25% 8%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 25% 8%;
+    --popover-foreground: 210 20% 92%;
+
+    /* Navy Blue Primary for Professional Look */
+    --primary: 214 84% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 218 20% 15%;
+    --secondary-foreground: 210 20% 88%;
+
+    --muted: 218 20% 12%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 214 84% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Alert System Colors */
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --warning: 38 88% 55%;
+    --warning-foreground: 220 25% 8%;
+    
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 218 20% 18%;
+    --input: 218 20% 15%;
+    --ring: 214 84% 48%;
+
+    --radius: 0.75rem;
+
+    /* Dashboard Specific Variables */
+    --dashboard-header: 220 25% 10%;
+    --dashboard-sidebar: 218 23% 8%;
+    --map-bg: 218 25% 5%;
+    --alert-critical: 0 85% 60%;
+    --alert-high: 25 95% 55%;
+    --alert-medium: 45 93% 58%;
+    --alert-low: 142 70% 45%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 84% 48%), hsl(214 84% 58%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 88% 55%), hsl(45 93% 58%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 75% 58%), hsl(0 85% 60%));
+    --gradient-success: linear-gradient(135deg, hsl(142 70% 45%), hsl(142 70% 55%));
+    
+    /* Shadows */
+    --shadow-dashboard: 0 10px 40px -15px hsl(220 25% 2% / 0.5);
+    --shadow-card: 0 4px 20px -4px hsl(220 25% 2% / 0.3);
+    --shadow-glow: 0 0 30px hsl(214 84% 48% / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 218 23% 8%;
+    --sidebar-foreground: 210 20% 88%;
+    --sidebar-primary: 214 84% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 218 20% 15%;
+    --sidebar-accent-foreground: 210 20% 88%;
+    --sidebar-border: 218 20% 18%;
+    --sidebar-ring: 214 84% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
