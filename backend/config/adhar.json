@@ -15,13 +15,5 @@
     "phone": "8765432109",
     "email": "priya@example.com",
     "address": "Shillong, Meghalaya"
-  },
-   {
-    "aadhaarNumber": "432143214321",
-    "name": "Madhujya",
-    "dob": "2000-08-23",
-    "phone": "8765432109",
-    "email": "priya@example.com",
-    "address": "Shillong, Meghalaya"
   }
 ]
