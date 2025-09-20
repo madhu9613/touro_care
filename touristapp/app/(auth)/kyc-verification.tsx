@@ -3,18 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput,
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { FileText, Upload, CircleCheck as CheckCircle, User, CreditCard, Shield, Globe, Smartphone } from 'lucide-react-native';
-import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
+import kycApi from '../api/kyc'; // Import the API module
 
-// Replace with your actual API endpoint
-const API_BASE_URL = 'YOUR_BACKEND_API_URL/api/kyc';
-
-// Assume you have a secure way to get the user's authentication token
-const getAuthToken = () => {
-  // Implement a function to retrieve the stored user token
-  // e.g., from AsyncStorage, a context, or a state management library
-  return 'YOUR_AUTH_TOKEN'; 
-};
+const getAuthToken = () => 'YOUR_AUTH_TOKEN'; // Optional if backend uses cookies
 
 interface Document {
   id: string;
@@ -24,7 +16,7 @@ interface Document {
   uploaded: boolean;
   icon: React.ReactNode;
   uri?: string;
-  file?: any; // To store the file object for upload
+  file?: any;
 }
 
 export default function KYCVerification() {
@@ -42,10 +34,9 @@ export default function KYCVerification() {
   });
   const [requestId, setRequestId] = useState<string | null>(null);
   const [otpTimer, setOtpTimer] = useState(0);
-
   const [documentStatus, setDocumentStatus] = useState<Document[]>([]);
 
-  // Effect to reset documents when idType changes
+  // Reset document list when idType or nationality changes
   useEffect(() => {
     setDocumentStatus([
       {
@@ -75,9 +66,9 @@ export default function KYCVerification() {
     ]);
   }, [idType, formData.nationality]);
 
-  // Start OTP timer
+  // OTP timer
   const startOtpTimer = () => {
-    setOtpTimer(300); // 5 minutes in seconds
+    setOtpTimer(300);
     const interval = setInterval(() => {
       setOtpTimer((prev) => {
         if (prev <= 1) {
@@ -89,6 +80,7 @@ export default function KYCVerification() {
     }, 1000);
   };
 
+  // Submit KYC (initial verification)
   const handleIdSubmit = async () => {
     if (!formData.name || !formData.dob) {
       Alert.alert('Error', 'Please fill all required details');
@@ -107,17 +99,13 @@ export default function KYCVerification() {
     setLoading(true);
 
     try {
-      const token = getAuthToken();
-      const payload = {
-        name: formData.name,
-        dob: formData.dob,
-        aadhaarNumber: idType === 'aadhaar' ? formData.aadhaarNumber : undefined,
-        // The backend expects either aadhaarNumber or passportNumber, but not both in this specific flow
-      };
+      const form = new FormData();
+      form.append('name', formData.name);
+      form.append('dob', formData.dob);
+      if (idType === 'aadhaar') form.append('aadhaarNumber', formData.aadhaarNumber);
+      else if (idType === 'passport') form.append('passportNumber', formData.passportNumber);
 
-      const response = await axios.post(`${API_BASE_URL}/submit`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await kycApi.submitKyc(form);
 
       if (response.data.success) {
         setRequestId(response.data.requestId);
@@ -128,22 +116,15 @@ export default function KYCVerification() {
         } else {
           Alert.alert('Manual Review', 'Your details need manual review. Please upload documents.');
           setVerificationFailed(true);
-          // Update document requirements for manual review
           setDocumentStatus((prev) =>
-            prev.map((doc) => ({
-              ...doc,
-              required: true,
-            }))
+            prev.map((doc) => ({ ...doc, required: true }))
           );
         }
       } else {
         Alert.alert('Verification Failed', response.data.message);
         setVerificationFailed(true);
         setDocumentStatus((prev) =>
-          prev.map((doc) => ({
-            ...doc,
-            required: true,
-          }))
+          prev.map((doc) => ({ ...doc, required: true }))
         );
       }
     } catch (error: any) {
@@ -151,38 +132,27 @@ export default function KYCVerification() {
       Alert.alert('Error', 'Failed to submit KYC details. Please try again.');
       setVerificationFailed(true);
       setDocumentStatus((prev) =>
-        prev.map((doc) => ({
-          ...doc,
-          required: true,
-        }))
+        prev.map((doc) => ({ ...doc, required: true }))
       );
     } finally {
       setLoading(false);
     }
   };
 
+  // OTP verification
   const handleOtpVerify = async () => {
     if (!formData.otp) {
       Alert.alert('Error', 'Please enter OTP');
       return;
     }
-
     if (!requestId) {
-      Alert.alert('Error', 'Missing request ID. Please try submitting your details again.');
+      Alert.alert('Error', 'Missing request ID. Please try again.');
       return;
     }
 
     setLoading(true);
-
     try {
-      const token = getAuthToken();
-      const response = await axios.post(`${API_BASE_URL}/verify-otp`, {
-        requestId,
-        otp: formData.otp,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const response = await kycApi.verifyOtpKyc({ otp: formData.otp, requestId });
       if (response.data.success) {
         Alert.alert('Success', 'Aadhaar verified successfully!');
         setCurrentStep(3);
@@ -197,6 +167,7 @@ export default function KYCVerification() {
     }
   };
 
+  // Document upload
   const handleDocumentUpload = async (documentId: string) => {
     Alert.alert(
       'Upload Document',
@@ -214,36 +185,20 @@ export default function KYCVerification() {
       let result;
       if (method === 'camera') {
         await ImagePicker.requestCameraPermissionsAsync();
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          quality: 1,
-        });
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 1 });
       } else {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          quality: 1,
-        });
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 1 });
       }
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = fileUri.split('/').pop();
         const fileType = fileName?.split('.').pop();
-        
-        // For React Native FormData, we need to create a file object with specific structure
-        const file = {
-          uri: fileUri,
-          name: fileName || `document_${Date.now()}.${fileType || 'jpg'}`,
-          type: `image/${fileType || 'jpeg'}`,
-        };
+        const file = { uri: fileUri, name: fileName || `document_${Date.now()}.${fileType || 'jpg'}`, type: `image/${fileType || 'jpeg'}` };
 
         setDocumentStatus((prev) =>
-          prev.map((doc) =>
-            doc.id === documentId ? { ...doc, uploaded: true, uri: fileUri, file: file } : doc
-          )
+          prev.map((doc) => doc.id === documentId ? { ...doc, uploaded: true, uri: fileUri, file } : doc)
         );
         Alert.alert('Success', `Document uploaded successfully.`);
       }
@@ -253,6 +208,7 @@ export default function KYCVerification() {
     }
   };
 
+  // Manual document submission
   const handleManualReviewSubmission = async () => {
     const requiredDocs = documentStatus.filter((doc) => doc.required);
     const uploadedRequiredDocs = requiredDocs.filter((doc) => doc.uploaded);
@@ -264,35 +220,17 @@ export default function KYCVerification() {
 
     setLoading(true);
     const form = new FormData();
-    
-    // Append text data
     form.append('name', formData.name);
     form.append('dob', formData.dob);
-    if (idType === 'aadhaar') {
-      form.append('aadhaarNumber', formData.aadhaarNumber);
-    } else if (idType === 'passport') {
-      form.append('passportNumber', formData.passportNumber);
-    }
+    if (idType === 'aadhaar') form.append('aadhaarNumber', formData.aadhaarNumber);
+    else if (idType === 'passport') form.append('passportNumber', formData.passportNumber);
 
-    // Append files - using the correct format for React Native
-    uploadedRequiredDocs.forEach((doc) => {
-      if (doc.file) {
-        // @ts-ignore - React Native FormData accepts this structure
-        form.append('documents', doc.file);
-      }
-    });
+    uploadedRequiredDocs.forEach((doc) => { if (doc.file) form.append('documents', doc.file); });
 
     try {
-      const token = getAuthToken();
-      const response = await axios.post(`${API_BASE_URL}/submit`, form, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const response = await kycApi.submitKyc(form);
       if (response.data.success) {
-        Alert.alert('Success', 'Documents submitted for manual verification. We will notify you once they are reviewed.');
+        Alert.alert('Success', 'Documents submitted for manual verification.');
         router.push('/trip-details');
       } else {
         Alert.alert('Error', 'Failed to submit documents. Please try again.');
@@ -305,11 +243,7 @@ export default function KYCVerification() {
     }
   };
 
-  const handleContinue = () => {
-    if (currentStep === 3) {
-      router.push('/trip-details');
-    }
-  };
+  const handleContinue = () => { if (currentStep === 3) router.push('/trip-details'); };
 
   const renderStepContent = () => {
     switch (currentStep) {
