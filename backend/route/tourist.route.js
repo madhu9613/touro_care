@@ -70,6 +70,7 @@ router.post('/sos/respond', auth, requireRole(['police', 'admin']), touristContr
 // Get comprehensive tourist details
 router.get('/details/:touristId', auth, requireRole(['police', 'admin']), touristController.getTouristDetails);
 
+
 // // ================= ML/ANALYTICS ROUTES =================
 
 // // Anomaly prediction

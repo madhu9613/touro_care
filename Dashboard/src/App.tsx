@@ -15,6 +15,8 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import EFIRPage from "./pages/EFIRPage";
 import SecurityPage from "./pages/SecurityPage";
 import SettingsPage from "./pages/SettingsPage";
+import "leaflet/dist/leaflet.css";
+
 
 const queryClient = new QueryClient();
 
