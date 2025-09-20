@@ -1,43 +1,33 @@
-// app/api/kyc.ts
 import axios from "axios";
 
-// Setup axios instance (baseURL can be from env)
-const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api/kyc",
+const kycApi = axios.create({
+  baseURL: process.env.EXPO_PUBLIC_API_URL?.concat("/api/kyc") || "http://localhost:4000/api/kyc",
   withCredentials: true,
 });
 
-// Tourist submits KYC (with documents)
-export const submitKyc = async (formData: FormData) => {
-  return await api.post("/submit", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+const authHeaders = (token?: string) => ({
+  headers: { Authorization: token ? `Bearer ${token}` : "" }
+});
+
+export const submitKyc = (formData: FormData, token: string) => {
+  return kycApi.post("/submit", formData, {
+    ...authHeaders(token),
+    headers: { ...authHeaders(token).headers, "Content-Type": "multipart/form-data" },
   });
 };
 
-// Verify OTP for Aadhaar-based KYC
-export const verifyOtpKyc = async (data: { otp: string; requestId: string }) => {
-  return await api.post("/verify-otp", data);
+export const verifyOtpKyc = (data: { otp: string; requestId: string }, token: string) => {
+  return kycApi.post("/verify-otp", data, authHeaders(token));
+};
+
+export const getKycByTourist = (touristId: string, token: string) => {
+  return kycApi.get(`/tourist/${touristId}`, authHeaders(token));
+};
+
+export const verifyFamilyAadhaar = (data: { memberName: string; aadhaarNumber: string; dob: string }, token: string) => {
+  return kycApi.post("/verify-family-aadhaar", data, authHeaders(token));
 };
 
 
-// Get KYC status by touristId
-export const getKycByTourist = async (touristId: string) => {
-  return await api.get(`/tourist/${touristId}`);
-};
 
-// ---------------- Family Aadhaar Verification ----------------
-// Extra endpoint for family member Aadhaar verification
-export const verifyFamilyAadhaar = async (data: {
-  memberName: string;
-  aadhaarNumber: string;
-  dob: string;
-}) => {
-  return await api.post("/verify-family-aadhaar", data);
-};
-
-export default {
-  submitKyc,
-  verifyOtpKyc,
-  getKycByTourist,
-  verifyFamilyAadhaar,
-};
+export default { submitKyc, verifyOtpKyc, getKycByTourist, verifyFamilyAadhaar };

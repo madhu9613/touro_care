@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getMe } from '../api/auth'; // your updated getMe()
+import { getMe } from '../api/auth';
 import Storage from '../utils/storage';
 
 interface User {
-  id: string;
+  _id: string; // matches API response
   name: string;
   email: string;
   roles: string[];
   org?: string;
   phone?: string;
   kycStatus?: 'not_started' | 'pending' | 'manual_review' | 'verified' | 'failed';
-  digitalIdStatus?: 'not_generated' | 'generated';
+  digitalIdStatus?: 'not_generated' | 'active' | 'deactive' | ''; 
+  walletId?: string;
+  createdAt?: string;
 }
 
 interface AppContextType {
@@ -34,7 +36,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshUser = async () => {
     try {
       setLoading(true);
-      const currentUser = await getMe(); // fetch current user info using stored token
+      const res = await getMe(); // should return { success: true, data: {...user} }
+      const currentUser = res?.data;
       if (currentUser) {
         setUser(currentUser);
         await Storage.setItem('user', JSON.stringify(currentUser));
