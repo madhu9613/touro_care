@@ -1,3 +1,5 @@
+'use strict';
+const mongoose = require('mongoose');
 const EFIRSchema = new mongoose.Schema({
   firId: { type: String, unique: true },
   touristId: { type: String, required: true },
@@ -8,3 +10,5 @@ const EFIRSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+
+module.exports = mongoose.model('efirschema', EFIRSchema);

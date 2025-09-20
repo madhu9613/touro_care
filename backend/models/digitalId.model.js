@@ -2,20 +2,25 @@
 const mongoose = require('mongoose');
 
 const digitalIdSchema = new mongoose.Schema({
-  digitalId: { type: String, index: true, unique: true, required: true }, // generated for family or same as walletId for primary
-  walletId: { type: String, index: true, required: true }, // owner walletId (primary tourist)
-  kycRequestId: { type: String, required: true }, // reference to KYC request used
+  digitalId: { type: String, required: true, unique: true },
+  walletId: { type: String, required: true },
+  kycRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'KycRequest' },
   kycHash: { type: String, required: true },
-  memberNameEncrypted: { type: Object }, // { iv, data, tag }
-  dobEncrypted: { type: Object },
-  itineraryEncrypted: { type: Object },
-  emergencyContactsEncrypted: { type: Object },
-  itinerarySummary: { type: Object }, // minimal public summary saved off-chain and on-chain
-  status: { type: String, enum: ['suspended','registered','active','revoked','pending_review'], default: 'suspended' },
-  chainTx: { type: Object },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: Date,
-  expiryAt: Date
-});
+  itineraryEncrypted: { iv: String, data: String, tag: String },
+  emergencyContactsEncrypted: { iv: String, data: String, tag: String },
+  itinerarySummary: {
+    destinations: [{ location: String, startDate: Date, endDate: Date }]
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'registered', 'active', 'suspended', 'expired', 'revoked'],
+    default: 'pending'
+  },
+  expiryAt: { type: Date, required: true },
+  chainTx: { txId: String, blockNumber: Number, timestamp: Date },
+  securityScore: { type: Number, min: 0, max: 100 },
+  lastKnownLocation: { lat: Number, lon: Number, timestamp: Date },
+  devices: [{ deviceId: String, registeredAt: Date, lastActive: Date }]
+}, { timestamps: true });
 
 module.exports = mongoose.model('DigitalId', digitalIdSchema);

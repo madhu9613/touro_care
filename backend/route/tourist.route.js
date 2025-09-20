@@ -35,7 +35,7 @@
 
 'use strict';
 const router = require('express').Router();
-const touristController = require('../controllers/tourist.controller');
+const touristController = require('../controller/tourist01.controller.js');
 const { auth, requireRole } = require('../middleware/auth.middleware');
 
 // ================= TOURIST ROUTES =================
@@ -69,13 +69,13 @@ router.post('/sos/respond', auth, requireRole(['police', 'admin']), touristContr
 // Get comprehensive tourist details
 router.get('/details/:touristId', auth, requireRole(['police', 'admin']), touristController.getTouristDetails);
 
-// ================= ML/ANALYTICS ROUTES =================
+// // ================= ML/ANALYTICS ROUTES =================
 
-// Anomaly prediction
-router.post('/predict_anomaly', auth, touristController.predictAnomaly);
+// // Anomaly prediction
+// router.post('/predict_anomaly', auth, touristController.predictAnomaly);
 
-// Geofence operations
-router.post('/geofence', auth, touristController.geofence);
-router.post('/add_geofence', auth, requireRole(['admin']), touristController.addGeofence);
+// // Geofence operations
+// router.post('/geofence', auth, touristController.geofence);
+// router.post('/add_geofence', auth, requireRole(['admin']), touristController.addGeofence);
 
 module.exports = router;
