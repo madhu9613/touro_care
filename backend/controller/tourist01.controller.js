@@ -12,6 +12,7 @@ const EFIR = require('../models/fir.model');
 const mlService = require('../services/mlService.js');
 const Anomaly = require('../models/anomoly.model');
 const NotificationService = require('../services/notificationService');
+const User = require('../models/user.model.js');
 
 const nano = customAlphabet('0123456789ABCDEF', 8); // 8-char suffix
 const AES_KEY = process.env.AES_256_KEY;
@@ -73,8 +74,9 @@ async function safeSubmit(org, identity, fn, ...args) {
 // ---------- Tourist Registration ----------
 exports.registerTourist = async (req, res, next) => {
     try {
+        const user = req.user; // Authenticated user
         const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY, expiryAt, itinerary = {}, emergencyContacts = [], deviceId } = req.body;
-        const walletId = req.user?.walletId;
+        const walletId = user?.walletId;
 
         if (!walletId || !expiryAt) {
             return res.status(400).json({ success: false, message: 'walletId and expiryAt are required' });
@@ -92,7 +94,7 @@ exports.registerTourist = async (req, res, next) => {
 
         const primaryDigitalId = walletId;
 
-        // Check if already registered in MongoDB
+        // Check if already registered
         const existingDigitalId = await DigitalId.findOne({ digitalId: primaryDigitalId });
         if (existingDigitalId && existingDigitalId.status !== 'expired') {
             return res.json({
@@ -107,10 +109,10 @@ exports.registerTourist = async (req, res, next) => {
         const contactsEnc = encryptObject(emergencyContacts);
         const itinerarySummary = makeItinerarySummary(itinerary);
 
-        // Calculate initial safety score
+        // Initial safety score
         const securityScore = await calculateInitialSafetyScore(itinerarySummary);
 
-        // Create digital ID document
+        // Create digital ID doc
         const digitalIdData = {
             digitalId: primaryDigitalId,
             walletId,
@@ -140,17 +142,20 @@ exports.registerTourist = async (req, res, next) => {
             JSON.stringify([]),
             new Date(expiryAt).toISOString()
         );
-        
+
         const parsedChain = JSON.parse(chainRes.toString());
         digitalIdData.chainTx = parsedChain;
 
-        // Save to MongoDB
+        // Save in MongoDB
         const digitalIdDoc = await DigitalId.create(digitalIdData);
+        
+        // Update user's digitalIdStatus to 'active'
+        await User.findByIdAndUpdate(user._id, { digitalIdStatus: 'active' });
 
         return res.json({
             success: true,
             message: 'Tourist registered successfully',
-            data: { 
+            data: {
                 digitalId: primaryDigitalId,
                 expiryAt: digitalIdDoc.expiryAt,
                 securityScore: digitalIdDoc.securityScore
@@ -447,7 +452,7 @@ exports.verifyTourist = async (req, res, next) => {
 // ---------- Update Tourist Status (for authorities) ----------
 exports.updateTouristStatus = async (req, res, next) => {
     try {
-        const { touristId, status, reason } = req.body;
+        const { touristId, status, reason, changedBy } = req.body;
         const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.query;
 
         if (!touristId || !status) {
@@ -481,18 +486,37 @@ exports.updateTouristStatus = async (req, res, next) => {
         await DigitalId.updateOne(
             { digitalId: touristId },
             { 
-                $set: { 
-                    status,
-                    updatedAt: new Date()
+                $set: { status, updatedAt: new Date() },
+                $push: {
+                    statusHistory: {
+                        status,
+                        reason: reason || null,
+                        changedAt: new Date(),
+                        changedBy: changedBy || identity
+                    }
                 }
             }
         );
+
+        // Update user's digitalIdStatus if status is revoked or suspended
+        if (status === 'revoked' || status === 'suspended') {
+            await User.findOneAndUpdate(
+                { walletId: touristId },
+                { digitalIdStatus: 'deactive' }
+            );
+        } else if (status === 'active') {
+            await User.findOneAndUpdate(
+                { walletId: touristId },
+                { digitalIdStatus: 'active' }
+            );
+        }
 
         res.json({ 
             success: true, 
             message: `Tourist status updated to ${status}`,
             data: parsed
         });
+
     } catch (err) {
         next(err);
     }

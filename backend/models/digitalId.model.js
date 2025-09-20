@@ -16,11 +16,18 @@ const digitalIdSchema = new mongoose.Schema({
     enum: ['pending', 'registered', 'active', 'suspended', 'expired', 'revoked'],
     default: 'pending'
   },
+  statusHistory: [{
+    status: { type: String, enum: ['pending', 'registered', 'active', 'suspended', 'expired', 'revoked'] },
+    reason: String,
+    changedAt: { type: Date, default: Date.now },
+    changedBy: String
+  }],
   expiryAt: { type: Date, required: true },
   chainTx: { txId: String, blockNumber: Number, timestamp: Date },
   securityScore: { type: Number, min: 0, max: 100 },
   lastKnownLocation: { lat: Number, lon: Number, timestamp: Date },
   devices: [{ deviceId: String, registeredAt: Date, lastActive: Date }]
 }, { timestamps: true });
+
 
 module.exports = mongoose.model('DigitalId', digitalIdSchema);
