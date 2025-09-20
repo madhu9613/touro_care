@@ -8,7 +8,7 @@ import { MapPin, Search } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 
-const BASE_URL = "http://127.0.0.1:4000";
+const BASE_URL = "http://localhost:4000";
 
 // custom marker icon (fixes default missing icons in Leaflet + Vite/Next)
 const touristIcon = new L.Icon({
@@ -27,7 +27,7 @@ export default function MapPage() {
   useEffect(() => {
     const fetchTourists = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/police/active`);
+        const res = await fetch(`${BASE_URL}/api/admin/users`);
         const data = await res.json();
         if (data.success) {
           setTourists(data.data || []);
