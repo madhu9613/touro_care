@@ -6,8 +6,10 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const logger = require('./utils/logger');
+const { startWsServer } = require('./services/wsService');
 
 require('dotenv').config();
+
 
 const authRoutes = require('./route/auth.route.js');
 const touristRoutes = require('./route/tourist.route.js');
@@ -16,6 +18,7 @@ const adminRoutes=require('./route/admin.route.js')
 const kycRoutes = require('./route/kyc.route.js')
 const errorHandler = require('./middleware/errorHandle.middleware.js');
 const app = express();
+
 
 // DB connect
 mongoose.connect(process.env.MONGO_URI, {
@@ -26,6 +29,8 @@ mongoose.connect(process.env.MONGO_URI, {
     logger.error('MongoDB connection error', err);
     process.exit(1);
   });
+
+startWsServer(5001);
 
 // Middlewares
 app.use(helmet());

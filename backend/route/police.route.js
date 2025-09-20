@@ -9,7 +9,7 @@ router.get("/active",  auth, policeController.getActiveTourists);
 
 // Police can fetch historical movement / anomaly records for a tourist
 router.get("/history/:touristId", auth, policeController.getTouristHistory);
-router.get("/efirs", policeController.getEfirs)
-router.get("/efirs/:id", policeController.getEfirById)
+router.get("/efirs", auth, policeController.getEfirs)
+router.get("/efirs/:id", auth,policeController.getEfirById)
 
 module.exports = router;

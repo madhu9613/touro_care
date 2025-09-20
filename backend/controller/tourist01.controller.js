@@ -281,7 +281,8 @@ exports.locationUpdate = async (req, res, next) => {
 // ---------- SOS Alert ----------
 exports.sosAlert = async (req, res, next) => {
     try {
-        const { touristId, deviceId, location, message } = req.body;
+         const touristId = req.user?.walletId;
+        const {  deviceId, location, message } = req.body;
         
         if (!touristId) {
             return res.status(400).json({ success: false, message: 'touristId is required' });
@@ -299,7 +300,6 @@ exports.sosAlert = async (req, res, next) => {
             deviceId,
             location: location || tourist.lastKnownLocation,
             message,
-            status: 'active',
             respondedBy: null,
             responseTime: null
         });
@@ -371,38 +371,47 @@ exports.submitFeedback = async (req, res, next) => {
 // ---------- File e-FIR ----------
 exports.fileEFIR = async (req, res, next) => {
     try {
-        const { touristId, incidentDetails, location, dateTime, witnesses } = req.body;
-        
+        const touristId = req.user?.walletId;
+        const { incidentDetails, location, dateTime } = req.body;
+
         if (!touristId || !incidentDetails) {
-            return res.status(400).json({ success: false, message: 'touristId and incidentDetails are required' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'touristId and incidentDetails are required' 
+            });
         }
+
+        // Generate unique EFIR ID
+        const efirId = `EFIR_${Date.now()}`;
 
         const efir = new EFIR({
             touristId,
+            efirId,
             incidentDetails,
             location,
             dateTime: dateTime || new Date(),
-            witnesses,
-            status: 'filed',
+            
+            status: 'submitted',    
             assignedTo: null,
             resolution: null
         });
+
         await efir.save();
 
-        // Notify police department
-        await NotificationService.notifyPoliceDepartment({
-            type: 'EFIR_FILED',
-            touristId,
-            incidentDetails,
-            location,
-            timestamp: new Date(),
-            efirId: efir._id
-        });
+        // // Notify police department
+        // await NotificationService.notifyPoliceDepartment({
+        //     type: 'EFIR_SUBMITTED',
+        //     touristId,
+        //     incidentDetails,
+        //     location,
+        //     timestamp: new Date(),
+        //     efirId: efir.efirId
+        // });
 
         return res.json({
             success: true,
             message: 'e-FIR filed successfully',
-            efirId: efir._id
+            efirId: efir.efirId
         });
 
     } catch (err) {
@@ -452,7 +461,7 @@ exports.verifyTourist = async (req, res, next) => {
 // ---------- Update Tourist Status (for authorities) ----------
 exports.updateTouristStatus = async (req, res, next) => {
     try {
-        const { touristId, status, reason, changedBy } = req.body;
+        const {  status, reason, changedBy } = req.body;
         const { org = DEFAULT_ORG, identity = DEFAULT_IDENTITY } = req.query;
 
         if (!touristId || !status) {
