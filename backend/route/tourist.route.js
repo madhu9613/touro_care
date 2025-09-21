@@ -39,6 +39,14 @@ const router = require('express').Router();
 const touristController = require('../controller/tourist01.controller.js');
 const { auth, requireRole } = require('../middleware/auth.middleware');
 
+
+
+const parser = require('../middleware/upload.middleware.js'); // multer cloudinary
+
+
+// Tourist submits KYC with documents
+// Use 'parser.array("documents")' to handle multiple file uploads
+
 // ================= TOURIST ROUTES =================
 
 // Register tourist after KYC approval
@@ -54,7 +62,15 @@ router.post('/sos', auth, requireRole(['tourist']), touristController.sosAlert);
 router.post('/feedback', auth, requireRole(['tourist']), touristController.submitFeedback);
 
 // File e-FIR (electronic First Information Report)
-router.post('/efir', auth, requireRole(['tourist']), touristController.fileEFIR);
+// router.post('/efir', auth, requireRole(['tourist']), touristController.fileEFIR);
+
+router.post(
+  '/efir',
+  auth,
+  requireRole(['tourist']),
+  parser.single('evidence'), // optional file
+  touristController.fileEFIR
+);
 
 // Verify tourist status (for authorities and self)
 router.get('/verify/:touristId', auth, touristController.verifyTourist);

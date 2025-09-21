@@ -450,8 +450,8 @@ exports.fileEFIR = async (req, res, next) => {
   try {
     const touristId = req.user?.walletId;
     const { incidentDetails, location, dateTime } = req.body;
+    const evidenceFile = req.file; // optional
 
-    // Validate required fields
     if (!touristId || !incidentDetails) {
       return res.status(400).json({ 
         success: false, 
@@ -459,16 +459,13 @@ exports.fileEFIR = async (req, res, next) => {
       });
     }
 
-    // Convert dateTime to Date object, fallback to current date
     const dateTimeObj = dateTime ? new Date(dateTime) : new Date();
     if (isNaN(dateTimeObj.getTime())) {
       return res.status(400).json({ success: false, message: 'Invalid dateTime format' });
     }
 
-    // Generate unique EFIR ID
     const efirId = `EFIR_${Date.now()}`;
 
-    // Create EFIR record
     const efir = new EFIR({
       touristId,
       efirId,
@@ -477,22 +474,22 @@ exports.fileEFIR = async (req, res, next) => {
       dateTime: dateTimeObj,
       status: 'submitted',
       assignedTo: null,
-      resolution: null
+      resolution: null,
+      evidence: evidenceFile ? evidenceFile.path : null // save file path if uploaded
     });
 
     await efir.save();
 
-    // Prepare blockchain event
     const eventId = `EFIR_${Date.now()}_${nano()}`;
     const efirEvent = {
       efirId: efir.efirId,
       incidentDetails: typeof incidentDetails === 'string' ? incidentDetails : JSON.stringify(incidentDetails),
       location,
       dateTime: dateTimeObj.toISOString(),
-      ts: new Date().toISOString()
+      ts: new Date().toISOString(),
+      evidence: evidenceFile ? evidenceFile.originalname : null
     };
 
-    // Submit to blockchain
     await safeSubmit(
       DEFAULT_ORG,
       DEFAULT_IDENTITY,
@@ -502,7 +499,6 @@ exports.fileEFIR = async (req, res, next) => {
       JSON.stringify(efirEvent)
     );
 
-    // Respond to client
     return res.json({
       success: true,
       message: 'e-FIR filed successfully',
