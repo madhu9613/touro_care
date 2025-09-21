@@ -116,6 +116,33 @@ const App = () => (
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+
+        {/* <SidebarProvider defaultOpen={true}>
+          <div className="flex min-h-screen w-full bg-background">
+            <DashboardSidebar />
+            <div className="flex flex-1 flex-col">
+              <DashboardHeader />
+              <main className="flex-1">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  {/* Placeholder routes for navigation items */}
+                  {/* <Route path="/map" element={<MapPage/>} /> */}
+                  {/* <Route path="/tourists" element={<TouristsPage/>} /> */}
+                  {/* <Route path="/alerts" element={<AlertsPage/>} /> */}
+                  {/* <Route path="/analytics" element={<AnalyticsPage/>} / */}
+                  {/* <Route path="/efir" element={<EFIRPage/>} /> */}
+                  {/* <Route path="/security" element={<SecurityPage/>} /> */}
+                  {/* <Route path="/settings" element={<SettingsPage/>} /> */}
+                  {/* Catch-all route */}
+                  {/* <Route path="*" element={<NotFound />} /> */}
+                {/* </Routes> */}
+              {/* </main> */}
+            {/* </div> */}
+          {/* </div> */}
+        {/* </SidebarProvider>  */}
+        
+        {/* */} 
+
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

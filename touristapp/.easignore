@@ -4,6 +4,7 @@ node_modules
 # Build outputs
 dist
 build
+web-build
 
 # Expo cache
 .expo
@@ -28,5 +29,5 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# System folders (avoid Windows issues)
-C:\Users\HP\AppData\Local\ElevatedDiagnostics
+# Environment / Secrets
+*.env

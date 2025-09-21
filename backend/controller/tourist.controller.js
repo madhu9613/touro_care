@@ -165,3 +165,27 @@ exports.verifyTourist = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getDigitalId = async (req, res, next) => {
+  try {
+    const { touristId } = req.params;
+
+    if (!touristId) {
+      return res.status(400).json({ success: false, message: 'touristId is required' });
+    }
+
+    // Fetch from MongoDB using DigitalId schema
+    const digitalIdData = await DigitalId.findOne({ touristId }).lean();
+
+    if (!digitalIdData) {
+      return res.status(404).json({ success: false, message: 'Digital ID not found' });
+    }
+
+    res.json({
+      success: true,
+      data: digitalIdData
+    });
+  } catch (err) {
+    next(err);
+  }
+};

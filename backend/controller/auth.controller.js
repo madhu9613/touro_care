@@ -79,6 +79,7 @@ exports.register = async (req, res, next) => {
     });
 
   } catch (err) {
+    console.log(err);
     next(err);
   }
 };
@@ -102,6 +103,7 @@ exports.login = async (req, res, next) => {
 
     res.json({ token, user: { email: user.email, id: user._id, roles: user.roles, org: user.org, walletId: user.walletId } });
   } catch (err) {
+    console.log(err);
     next(err);
   }
 };

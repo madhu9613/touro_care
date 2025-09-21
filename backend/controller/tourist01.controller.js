@@ -346,6 +346,7 @@ exports.sosAlert = async (req, res, next) => {
         // Record SOS event on blockchain
         const eventId = `SOS_${Date.now()}_${nano()}`;
         const sosEvent = {
+            
             alertId: sosAlert._id.toString(),
             location: location || tourist.lastKnownLocation,
             message,
@@ -793,5 +794,6 @@ async function calculateInitialSafetyScore(itinerary) {
     // - Other factors
     return 75; // Default medium score
 }
+
 
 module.exports = exports;
