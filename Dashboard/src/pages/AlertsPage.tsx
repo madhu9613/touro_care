@@ -1,36 +1,56 @@
-// frontend/pages/alertpage.tsx
-import { useEffect, useState } from "react";
+
+
+
+import React, { useEffect, useState } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 import { AlertCard } from "@/components/AlertCard";
 import { initWebSocket } from "../utils/wsUtils";
 
-const BASE_URL = "http://localhost:4000";
+
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<any[]>([]);
+  // Initial static alerts
+  const [alerts, setAlerts] = useState([
+    { id: "ALT-101", type: "critical", title: "SOS Activated", description: "Emergency button pressed", location: "Delhi Airport", touristName: "John Doe", timestamp: "Just now" },
+    { id: "ALT-102", type: "high", title: "Geo-fence Violation", description: "Entered restricted zone", location: "Indo-China Border", touristName: "Amit Sharma", timestamp: "10 min ago" }
+  ]);
 
-  // Fetch active alerts
   useEffect(() => {
-    async function fetchAlerts() {
+    // Connect to WebSocket server
+    const ws = new WebSocket("ws://localhost:5001"); // Replace with your server URL
+
+    ws.onopen = () => console.log("✅ Connected to WS server");
+
+    ws.onmessage = (event) => {
       try {
-        const res = await fetch(`${BASE_URL}/api/alerts/active`);
-        const data = await res.json();
-        if (data.success) setAlerts(data.alerts);
-      } catch (err) {
-        console.error("Failed to fetch alerts", err);
-      }
-    }
-    fetchAlerts();
-  }, []);
+        const { topic, payload } = JSON.parse(event.data);
 
-  // WebSocket for live updates
-  useEffect(() => {
-    initWebSocket((topic, payload) => {
-      if (topic === "emergency_contact" || topic === "authorities") {
-        setAlerts((prev) => [payload, ...prev]);
+        if (topic === "emergency_contact" || topic === "authorities") {
+          // Create a new alert object compatible with AlertCard
+          const newAlert = {
+            id: `ALT-${Date.now()}`,
+            type: "critical",
+            title: payload.type === "SOS_ALERT" ? "SOS Activated" : "Authority Alert",
+            description: payload.message,
+            location: payload.location ? JSON.stringify(payload.location) : "Unknown",
+            touristName: payload.touristId,
+            timestamp: "Just now"
+          };
+
+          // Add to alerts list
+          setAlerts((prev) => [newAlert, ...prev]);
+        }
+      } catch (err) {
+        console.error("WS message parse error:", err);
       }
-    });
+    };
+
+    ws.onclose = () => console.log("❌ WS disconnected");
+
+    return () => ws.close();
+
   }, []);
 
   return (
