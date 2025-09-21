@@ -1,24 +1,25 @@
-// frontend/utils/wsClient.ts
-let ws: WebSocket | null = null;
+let socket: WebSocket | null = null;
 
-export function initWebSocket(onMessage: (topic: string, payload: any) => void) {
-  ws = new WebSocket('ws://localhost:5001'); // your WS server URL
+export const connectWS = (url: string, onMessage: (data: any) => void) => {
+  socket = new WebSocket(url);
 
-  ws.onopen = () => console.log('Connected to WebSocket server');
+  socket.onopen = () => {
+    console.log('WS connected');
+  };
 
-  ws.onmessage = (event) => {
+  socket.onmessage = (event) => {
     try {
       const { topic, payload } = JSON.parse(event.data);
-      onMessage(topic, payload);
+      onMessage({ topic, payload });
     } catch (err) {
-      console.error('WS parse error', err);
+      console.error('Invalid WS message:', event.data);
     }
   };
 
-  ws.onclose = () => {
-    console.log('Disconnected from WebSocket. Reconnecting in 3s...');
-    setTimeout(() => initWebSocket(onMessage), 3000);
-  };
+  socket.onclose = () => console.log('WS disconnected');
+  socket.onerror = (err) => console.error('WS error:', err);
+};
 
-  ws.onerror = (err) => console.error('WebSocket error', err);
-}
+export const disconnectWS = () => {
+  if (socket) socket.close();
+};

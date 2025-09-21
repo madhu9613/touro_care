@@ -1,72 +1,88 @@
+"use client";
+import { useEffect, useState } from "react";
+import { connectWS, disconnectWS } from "../utils/wsUtils";
 
+interface Alert {
+  touristId: string;
+  type: string;
+  message: string;
+  location?: { lat: number; lng: number };
+  contact?: string;
+  timestamp: string;
+}
 
-
-import React, { useEffect, useState } from "react";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
-import { AlertCard } from "@/components/AlertCard";
-import { initWebSocket } from "../utils/wsUtils";
-
-
-
-export default function AlertsPage() {
-  // Initial static alerts
-  const [alerts, setAlerts] = useState([
-    { id: "ALT-101", type: "critical", title: "SOS Activated", description: "Emergency button pressed", location: "Delhi Airport", touristName: "John Doe", timestamp: "Just now" },
-    { id: "ALT-102", type: "high", title: "Geo-fence Violation", description: "Entered restricted zone", location: "Indo-China Border", touristName: "Amit Sharma", timestamp: "10 min ago" }
-  ]);
+export default function AlertPage() {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Connect to WebSocket server
-    const ws = new WebSocket("ws://localhost:5001"); // Replace with your server URL
-
-    ws.onopen = () => console.log("✅ Connected to WS server");
-
-    ws.onmessage = (event) => {
+    // Fetch existing alerts from backend
+    const fetchAlerts = async () => {
       try {
-        const { topic, payload } = JSON.parse(event.data);
-
-        if (topic === "emergency_contact" || topic === "authorities") {
-          // Create a new alert object compatible with AlertCard
-          const newAlert = {
-            id: `ALT-${Date.now()}`,
-            type: "critical",
-            title: payload.type === "SOS_ALERT" ? "SOS Activated" : "Authority Alert",
-            description: payload.message,
-            location: payload.location ? JSON.stringify(payload.location) : "Unknown",
-            touristName: payload.touristId,
-            timestamp: "Just now"
-          };
-
-          // Add to alerts list
-          setAlerts((prev) => [newAlert, ...prev]);
+        const res = await fetch("http://localhost:4000/api/admin/alerts"); // adjust path if needed
+        const data = await res.json();
+        if (data.success) {
+          setAlerts(data.alerts);
         }
       } catch (err) {
-        console.error("WS message parse error:", err);
+        console.error("Failed to fetch alerts:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    ws.onclose = () => console.log("❌ WS disconnected");
+    fetchAlerts();
 
-    return () => ws.close();
+    // Connect to WebSocket for real-time updates
+connectWS("ws://localhost:5001", (msg) => {
+  console.log("WS message received:", msg);
+  const { topic, payload } = msg;
+  if (topic === "emergency_contact" || topic === "authorities") {
+    setAlerts((prev) => [payload, ...prev]);
+  }
+});
+
+
+    return () => disconnectWS();
 
   }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">Alert Center</h2>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            Active Alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {alerts.length === 0 ? <p>No active alerts</p> : alerts.map((alert) => <AlertCard key={alert._id || alert.alertId} {...alert} />)}
-        </CardContent>
-      </Card>
+    <div className="p-4 bg-gray-900 min-h-screen text-white">
+      <h2 className="text-2xl font-bold mb-4">Alerts Dashboard</h2>
+      {loading && <p>Loading alerts...</p>}
+      {!loading && alerts.length === 0 && <p>No alerts yet.</p>}
+
+      <ul className="space-y-3">
+        {alerts.map((alert, idx) => (
+          <li
+            key={idx}
+            className="p-4 rounded-lg shadow-md bg-gray-800 border border-gray-700"
+          >
+            <p>
+              <strong>Type:</strong> {alert.type}
+            </p>
+            <p>
+              <strong>Message:</strong> {alert.message}
+            </p>
+            {alert.contact && (
+              <p>
+                <strong>Contact:</strong> {alert.contact}
+              </p>
+            )}
+            {alert.location && (
+              <p>
+                <strong>Location:</strong> {alert.location.lat},{" "}
+                {alert.location.lng}
+              </p>
+            )}
+            <p>
+              <strong>Time:</strong>{" "}
+              {new Date(alert.timestamp).toLocaleString()}
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
