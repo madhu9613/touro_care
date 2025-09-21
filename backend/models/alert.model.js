@@ -1,3 +1,4 @@
+// models/Alert.js
 'use strict';
 const mongoose = require('mongoose');
 
@@ -7,8 +8,10 @@ const alertSchema = new mongoose.Schema({
   message: String,
   location: { lat: Number, lng: Number },
   handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['open','acknowledged','resolved'], default: 'open' },
+  acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // New field
+  status: { type: String, enum: ['open','acknowledged','accepted','resolved'], default: 'open' }, // Added 'accepted'
   createdAt: { type: Date, default: Date.now },
+  acceptedAt: Date, // New field
   updatedAt: Date
 });
 

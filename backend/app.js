@@ -16,6 +16,7 @@ const touristRoutes = require('./route/tourist.route.js');
 const policeRoutes = require('./route/police.route.js');
 const adminRoutes=require('./route/admin.route.js')
 const kycRoutes = require('./route/kyc.route.js')
+const alertRoutes=require('./route/alert.route.js')
 const errorHandler = require('./middleware/errorHandle.middleware.js');
 const app = express();
 
@@ -51,6 +52,8 @@ app.use('/api/tourist', touristRoutes);
 app.use('/api/police', policeRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/admin',adminRoutes);
+app.use('/api/alert',alertRoutes)
+
 // Error handler
 app.use(errorHandler);
 

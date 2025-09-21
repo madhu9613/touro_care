@@ -173,15 +173,18 @@ exports.registerTourist = async (req, res, next) => {
 // ---------- Location Update ----------
 exports.locationUpdate = async (req, res, next) => {
     try {
-        const {
+          const user = req.user;
+          const touristId=user?.walletId;
+
+          
+         const {
             org = DEFAULT_ORG,
             identity = DEFAULT_IDENTITY,
-            touristId,
             deviceId,
             locations
         } = req.body;
 
-        if (!touristId || !Array.isArray(locations) || locations.length !== 1) {
+        if (  !Array.isArray(locations) || locations.length !== 1) {
             return res.status(400).json({
                 success: false,
                 message: 'touristId & exactly 1 location object are required'

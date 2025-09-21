@@ -1,7 +1,7 @@
 import axios from "axios";
 import Storage from '../utils/storage'; // adjust the path
-const API_BASE = " https://3f45c820ded9.ngrok-free.app/api"; // change to your backend URL (or ngrok if testing on phone)
-
+// const API_BASE = "https://00e741d4f06e.ngrok-free.app/api"; // change to your backend URL (or ngrok if testing on phone)
+const API_BASE = "http://localhost:4000"; 
 // LOGIN
 export const loginUser = async (email: string, password: string) => {
   try {

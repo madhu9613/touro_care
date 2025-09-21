@@ -15,19 +15,29 @@ export default function EFIRPage() {
 
   const [selectedTourist, setSelectedTourist] = useState<any | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const token = localStorage.getItem("token");
 
   // Fetch FIRs
   useEffect(() => {
     const fetchEfirs = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/police/efirs`);
+        // const res = await fetch(`${BASE_URL}/api/admin/efirs`);
+        
+        const res = await fetch(`${BASE_URL}/api/police/efirs`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await res.json();
+        console.log("EFIR Response:", data); // Debug
+
         if (data.success) {
-          setEfirs(data.data || []);
+          // Remove duplicates based on efirId
+          const uniqueEfirs = Array.from(new Map(data.data.map((f: any) => [f.efirId, f])).values());
+          setEfirs(uniqueEfirs);
         } else {
           setError("Failed to load FIRs");
         }
       } catch (err) {
+        console.error(err);
         setError("Error fetching FIRs");
       } finally {
         setLoading(false);
@@ -106,7 +116,10 @@ export default function EFIRPage() {
                 <strong>Incident:</strong> {f.incidentDetails}
               </div>
               <div>
-                <strong>Location:</strong> {f.location}
+                <strong>Location:</strong>{" "}
+                {typeof f.location === "string"
+                  ? f.location
+                  : f.location?.address || `${f.location?.latitude}, ${f.location?.longitude}`}
               </div>
               <div>
                 <strong>Date/Time:</strong>{" "}
@@ -147,62 +160,60 @@ export default function EFIRPage() {
       )}
 
       {/* Tourist Details Dialog */}
-{/* Tourist Details Dialog */}
-<Dialog open={openDialog} onOpenChange={setOpenDialog}>
-  <DialogContent className="max-w-md">
-    <DialogHeader>
-      <DialogTitle>Tourist Details</DialogTitle>
-    </DialogHeader>
-    {selectedTourist ? (
-      selectedTourist.error ? (
-        <div className="text-red-500">{selectedTourist.error}</div>
-      ) : (
-        <div className="space-y-3">
-          <div>
-            <strong>ID:</strong> {selectedTourist.digitalId?.digitalId}
-          </div>
-          <div>
-            <strong>Status:</strong> {selectedTourist.digitalId?.status}
-          </div>
-          <div>
-            <strong>Security Score:</strong>{" "}
-            {selectedTourist.digitalId?.securityScore}
-          </div>
-          <div>
-            <strong>Itinerary:</strong>{" "}
-            {selectedTourist.digitalId?.itinerarySummary?.destinations?.length > 0
-              ? selectedTourist.digitalId.itinerarySummary.destinations
-                  .map(
-                    (d: any) =>
-                      `${d.location} (${new Date(
-                        d.startDate
-                      ).toLocaleDateString()} - ${new Date(
-                        d.endDate
-                      ).toLocaleDateString()})`
-                  )
-                  .join(", ")
-              : "N/A"}
-          </div>
-          <div>
-            <strong>Emergency Contacts:</strong>{" "}
-            {selectedTourist.digitalId?.emergencyContactsEncrypted
-              ? "Encrypted (secured)"
-              : "N/A"}
-          </div>
-          <div>
-            <strong>Expiry:</strong>{" "}
-            {new Date(
-              selectedTourist.digitalId?.expiryAt
-            ).toLocaleDateString()}
-          </div>
-        </div>
-      )
-    ) : (
-      <div>Loading...</div>
-    )}
-  </DialogContent>
-</Dialog>
-
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tourist Details</DialogTitle>
+          </DialogHeader>
+          {selectedTourist ? (
+            selectedTourist.error ? (
+              <div className="text-red-500">{selectedTourist.error}</div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <strong>ID:</strong> {selectedTourist.digitalId?.digitalId}
+                </div>
+                <div>
+                  <strong>Status:</strong> {selectedTourist.digitalId?.status}
+                </div>
+                <div>
+                  <strong>Security Score:</strong>{" "}
+                  {selectedTourist.digitalId?.securityScore}
+                </div>
+                <div>
+                  <strong>Itinerary:</strong>{" "}
+                  {selectedTourist.digitalId?.itinerarySummary?.destinations?.length > 0
+                    ? selectedTourist.digitalId.itinerarySummary.destinations
+                        .map(
+                          (d: any) =>
+                            `${d.location} (${new Date(
+                              d.startDate
+                            ).toLocaleDateString()} - ${new Date(
+                              d.endDate
+                            ).toLocaleDateString()})`
+                        )
+                        .join(", ")
+                    : "N/A"}
+                </div>
+                <div>
+                  <strong>Emergency Contacts:</strong>{" "}
+                  {selectedTourist.digitalId?.emergencyContactsEncrypted
+                    ? "Encrypted (secured)"
+                    : "N/A"}
+                </div>
+                <div>
+                  <strong>Expiry:</strong>{" "}
+                  {selectedTourist.digitalId?.expiryAt
+                    ? new Date(selectedTourist.digitalId.expiryAt).toLocaleDateString()
+                    : "N/A"}
+                </div>
+              </div>
+            )
+          ) : (
+            <div>Loading...</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
