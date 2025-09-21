@@ -1,52 +1,87 @@
-// frontend/pages/alertpage.tsx
+"use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
-import { AlertCard } from "@/components/AlertCard";
-import { initWebSocket } from "../utils/wsUtils";
+import { connectWS, disconnectWS } from "../utils/wsUtils";
 
-const BASE_URL = "http://localhost:4000";
+interface Alert {
+  touristId: string;
+  type: string;
+  message: string;
+  location?: { lat: number; lng: number };
+  contact?: string;
+  timestamp: string;
+}
 
-export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<any[]>([]);
+export default function AlertPage() {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch active alerts
   useEffect(() => {
-    async function fetchAlerts() {
+    // Fetch existing alerts from backend
+    const fetchAlerts = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/alerts/active`);
+        const res = await fetch("http://localhost:4000/api/admin/alerts"); // adjust path if needed
         const data = await res.json();
-        if (data.success) setAlerts(data.alerts);
+        if (data.success) {
+          setAlerts(data.alerts);
+        }
       } catch (err) {
-        console.error("Failed to fetch alerts", err);
+        console.error("Failed to fetch alerts:", err);
+      } finally {
+        setLoading(false);
       }
-    }
-    fetchAlerts();
-  }, []);
+    };
 
-  // WebSocket for live updates
-  useEffect(() => {
-    initWebSocket((topic, payload) => {
-      if (topic === "emergency_contact" || topic === "authorities") {
-        setAlerts((prev) => [payload, ...prev]);
-      }
-    });
+    fetchAlerts();
+
+    // Connect to WebSocket for real-time updates
+connectWS("ws://localhost:5001", (msg) => {
+  console.log("WS message received:", msg);
+  const { topic, payload } = msg;
+  if (topic === "emergency_contact" || topic === "authorities") {
+    setAlerts((prev) => [payload, ...prev]);
+  }
+});
+
+
+    return () => disconnectWS();
   }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">Alert Center</h2>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            Active Alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {alerts.length === 0 ? <p>No active alerts</p> : alerts.map((alert) => <AlertCard key={alert._id || alert.alertId} {...alert} />)}
-        </CardContent>
-      </Card>
+    <div className="p-4 bg-gray-900 min-h-screen text-white">
+      <h2 className="text-2xl font-bold mb-4">Alerts Dashboard</h2>
+      {loading && <p>Loading alerts...</p>}
+      {!loading && alerts.length === 0 && <p>No alerts yet.</p>}
+
+      <ul className="space-y-3">
+        {alerts.map((alert, idx) => (
+          <li
+            key={idx}
+            className="p-4 rounded-lg shadow-md bg-gray-800 border border-gray-700"
+          >
+            <p>
+              <strong>Type:</strong> {alert.type}
+            </p>
+            <p>
+              <strong>Message:</strong> {alert.message}
+            </p>
+            {alert.contact && (
+              <p>
+                <strong>Contact:</strong> {alert.contact}
+              </p>
+            )}
+            {alert.location && (
+              <p>
+                <strong>Location:</strong> {alert.location.lat},{" "}
+                {alert.location.lng}
+              </p>
+            )}
+            <p>
+              <strong>Time:</strong>{" "}
+              {new Date(alert.timestamp).toLocaleString()}
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

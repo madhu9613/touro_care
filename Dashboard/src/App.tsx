@@ -15,6 +15,7 @@ import EFIRPage from "./pages/EFIRPage";
 import SecurityPage from "./pages/SecurityPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/Login"; // add login page
+import AlertPage from "./pages/AlertsPage";
 
 import "leaflet/dist/leaflet.css";
 import { useAuth } from "./hooks/useAuth"; // custom hook for auth state
@@ -99,6 +100,15 @@ const App = () => (
             element={
               <ProtectedLayout>
                 <SettingsPage />
+              </ProtectedLayout>
+            }
+          />
+
+          <Route
+            path="/alerts"
+            element={
+              <ProtectedLayout>
+                <AlertPage />
               </ProtectedLayout>
             }
           />
